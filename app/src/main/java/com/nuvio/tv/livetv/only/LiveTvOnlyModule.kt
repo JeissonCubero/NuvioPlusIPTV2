@@ -7,6 +7,8 @@ import com.nuvio.tv.domain.repository.AddonRepository
 import com.nuvio.tv.domain.repository.CatalogRepository
 import dagger.Binds
 import dagger.Module
+import dagger.multibindings.Multibinds
+import com.nuvio.tv.core.profile.ProfileScopedCredentialStore
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.flow.Flow
@@ -58,4 +60,9 @@ abstract class LiveTvOnlyModule {
     @Binds
     @Singleton
     abstract fun bindCatalogRepository(impl: NoCatalogRepository): CatalogRepository
+
+    // Profiles clear their saved sign-ins through these; none are left in this build (they were
+    // Nuvio's Trakt/Simkl/servers), so the set is empty.
+    @Multibinds
+    abstract fun credentialStores(): Set<ProfileScopedCredentialStore>
 }
