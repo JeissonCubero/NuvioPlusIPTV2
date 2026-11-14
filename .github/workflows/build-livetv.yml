@@ -64,6 +64,17 @@ jobs:
           find app/build/outputs/apk/release -name "*.apk" -exec cp {} out/ \;
           ls -la out
 
+      - name: Check APKs
+        run: |
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          for f in out/*.apk; do
+            echo "===== $f"
+            "$BT/aapt2" dump badging "$f" | grep -E "^package|sdkVersion|native-code|application-label:|testOnly|debuggable" || true
+            "$BT/zipalign" -c -P 16 -v 4 "$f" | tail -1 || true
+            "$BT/apksigner" verify --print-certs -v "$f" | grep -E "Verified|Signer #1 certificate SHA-256|DOES NOT|ERROR|WARNING" | head -12 || true
+            unzip -l "$f" | grep -E "lib/.*\.so" | awk '{s+=$1} END {print "native libs bytes:", s}'
+          done
+
       - name: Upload APKs
         uses: actions/upload-artifact@v4
         with:
