@@ -132,9 +132,7 @@ class LiveTvPosterResolver @Inject constructor(
      */
     suspend fun diagnose(title: String): String {
         val query = LiveTvSearchBridge.cleanTitle(title).ifBlank { title.trim() }
-        val addons = withTimeoutOrNull(8_000) {
-            addonRepository.getInstalledAddons().first { it.enabledAddons().isNotEmpty() }
-        }?.enabledAddons() ?: return "No addons are installed and enabled, so there's nothing to search."
+        val addons = addonRepository.getInstalledAddons().first().enabledAddons().takeIf { it.isNotEmpty() } ?: return "No addons are installed and enabled, so there's nothing to search."
         val targets = searchTargets(addons)
         if (targets.isEmpty()) {
             return "None of your ${addons.size} addons has a searchable movie or series catalog. Posters come from addon search (Cinemeta, TMDB, AIOMetadata and similar)."
@@ -331,9 +329,7 @@ class LiveTvPosterResolver @Inject constructor(
 
     private suspend fun lookup(query: String, hint: TypeHint?, clues: Clues, attempt: Attempt, strictYear: Boolean = false): Hit? {
         // Wait for the installed addons to load (the first value can be an empty placeholder).
-        val addons = withTimeoutOrNull(8_000) {
-            addonRepository.getInstalledAddons().first { it.enabledAddons().isNotEmpty() }
-        }?.enabledAddons() ?: return null
+        val addons = addonRepository.getInstalledAddons().first().enabledAddons().takeIf { it.isNotEmpty() } ?: return null
         val all = searchTargets(addons)
         if (hint == null) return lookupIn(query, all.take(MAX_CATALOGS), clues, attempt, strictYear = strictYear)
         val preferredType = if (hint.kind == Kind.MOVIE) "movie" else "series"

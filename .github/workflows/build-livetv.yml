@@ -1,0 +1,72 @@
+name: Build Live TV APK
+
+# Builds the Live TV only app. Runs on every push to the livetv-only branch, or by hand
+# from the Actions tab.
+on:
+  push:
+    branches: [livetv-only]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Prepare properties
+        env:
+          LOCAL_PROPERTIES_BASE64: ${{ secrets.LOCAL_PROPERTIES_BASE64 }}
+        run: |
+          if [ -n "$LOCAL_PROPERTIES_BASE64" ]; then
+            printf '%s' "$LOCAL_PROPERTIES_BASE64" | base64 --decode > local.properties
+          else
+            touch local.properties
+          fi
+          touch local.dev.properties
+
+      # The fork's fixed key (keystore/livetv-fork.jks), so each build updates the last install.
+      # To use your own key, add a secret LIVETV_KEYSTORE_BASE64 (passwords "livetvfork", alias "livetv").
+      - name: Signing
+        env:
+          LIVETV_KEYSTORE_BASE64: ${{ secrets.LIVETV_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$LIVETV_KEYSTORE_BASE64" ]; then
+            printf '%s' "$LIVETV_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/key.jks"
+          else
+            cp keystore/livetv-fork.jks "$RUNNER_TEMP/key.jks"
+          fi
+          {
+            echo "NUVIO_RELEASE_STORE_FILE=$RUNNER_TEMP/key.jks"
+            echo "NUVIO_RELEASE_KEY_ALIAS=livetv"
+            echo "NUVIO_RELEASE_KEY_PASSWORD=livetvfork"
+            echo "NUVIO_RELEASE_STORE_PASSWORD=livetvfork"
+          } >> "$GITHUB_ENV"
+
+      - name: Build APK
+        run: |
+          chmod +x gradlew
+          ./gradlew :app:assembleDebug --stacktrace
+
+      - name: Collect APKs
+        run: |
+          mkdir -p out
+          find app/build/outputs/apk/debug -name "*.apk" -exec cp {} out/ \;
+          ls -la out
+
+      - name: Upload APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: livetv-only-apks
+          path: out/*.apk
+          if-no-files-found: error

@@ -10,13 +10,6 @@ import androidx.datastore.preferences.core.stringSetPreferencesKey
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import com.nuvio.tv.core.profile.ProfileManager
-import com.nuvio.tv.core.sync.LocalHomeCatalogSettingsState
-import com.nuvio.tv.core.sync.SyncHomeCatalogPayload
-import com.nuvio.tv.core.sync.buildHomeCatalogSyncPayload
-import com.nuvio.tv.core.sync.homeCatalogKey
-import com.nuvio.tv.core.sync.homeCollectionKey
-import com.nuvio.tv.core.sync.withLocalServerKeys
-import com.nuvio.tv.data.mediaserver.ServerCatalog
 import com.nuvio.tv.domain.model.Addon
 import com.nuvio.tv.domain.model.CardDepthStyle
 import com.nuvio.tv.domain.model.CardDepthSurface
@@ -891,70 +884,6 @@ class LayoutPreferenceDataStore @Inject constructor(
                 prefs[customCatalogTitlesKey] = gson.toJson(filtered)
             }
         }
-    }
-
-    internal suspend fun getHomeCatalogSettingsState(): LocalHomeCatalogSettingsState {
-        return readHomeCatalogSettingsState(store().data.first())
-    }
-
-    internal suspend fun exportCatalogSettingsToSyncPayload(
-        addons: List<Addon>,
-        collections: List<Collection>
-    ): SyncHomeCatalogPayload {
-        return buildHomeCatalogSyncPayload(
-            addons = addons,
-            collections = collections,
-            localState = getHomeCatalogSettingsState()
-        )
-    }
-
-    suspend fun applyCatalogSettingsFromRemote(payload: SyncHomeCatalogPayload) {
-        val sortedItems = payload.items.sortedBy { it.order }
-        val remoteOrderKeys = sortedItems.map { item ->
-            if (item.isCollection) homeCollectionKey(item.collectionId)
-            else homeCatalogKey(item.addonId, item.type, item.catalogId)
-        }
-        val remoteDisabledKeys = sortedItems.filter { !it.enabled }.map { item ->
-            if (item.isCollection) homeCollectionKey(item.collectionId)
-            else homeCatalogKey(item.addonId, item.type, item.catalogId)
-        }
-        val remoteTitles = sortedItems.associate { item ->
-            val key = if (item.isCollection) homeCollectionKey(item.collectionId)
-            else homeCatalogKey(item.addonId, item.type, item.catalogId)
-            key to item.customTitle
-        }.filterValues { it.isNotBlank() }
-
-        store().edit { prefs ->
-            val local = readHomeCatalogSettingsState(prefs)
-            val orderKeys = remoteOrderKeys.withLocalServerKeys(local.orderKeys)
-            val disabledKeys = remoteDisabledKeys + local.disabledKeys.filter(ServerCatalog::isServerKey)
-            val titles = remoteTitles + local.customTitles.filterKeys(ServerCatalog::isServerKey)
-            prefs[hideUnreleasedContentKey] = payload.hideUnreleasedContent
-            if (orderKeys.isNotEmpty()) {
-                prefs[homeCatalogOrderKeysKey] = gson.toJson(orderKeys)
-            } else {
-                prefs.remove(homeCatalogOrderKeysKey)
-            }
-            if (disabledKeys.isNotEmpty()) {
-                prefs[disabledHomeCatalogKeysKey] = gson.toJson(disabledKeys)
-            } else {
-                prefs.remove(disabledHomeCatalogKeysKey)
-            }
-            if (titles.isNotEmpty()) {
-                prefs[customCatalogTitlesKey] = gson.toJson(titles)
-            } else {
-                prefs.remove(customCatalogTitlesKey)
-            }
-        }
-    }
-
-    private fun readHomeCatalogSettingsState(prefs: Preferences): LocalHomeCatalogSettingsState {
-        return LocalHomeCatalogSettingsState(
-            orderKeys = parseCatalogKeys(prefs.getStringOrMigrateSet(homeCatalogOrderKeysKey)),
-            disabledKeys = parseCatalogKeys(prefs.getStringOrMigrateSet(disabledHomeCatalogKeysKey)).toSet(),
-            customTitles = parseCustomTitles(prefs.getStringOrMigrateSet(customCatalogTitlesKey)),
-            hideUnreleasedContent = prefs[hideUnreleasedContentKey] ?: false
-        )
     }
 }
 

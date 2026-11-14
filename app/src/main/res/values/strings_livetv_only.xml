@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Live TV only build: the side menu. -->
+    <string name="livetv_only_menu_live_tv">Live TV</string>
+    <string name="livetv_only_menu_search">Search</string>
+    <string name="livetv_only_menu_sports">Sports</string>
+    <string name="livetv_only_menu_recordings">Recordings</string>
+    <string name="livetv_only_menu_multiview">Multiview</string>
+    <string name="livetv_only_menu_settings">Settings</string>
+</resources>

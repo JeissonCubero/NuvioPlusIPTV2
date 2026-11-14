@@ -5,12 +5,8 @@ import androidx.annotation.StringRes
 import com.nuvio.tv.R
 import com.nuvio.tv.core.util.withAppLocale
 import android.os.Build
-import com.nuvio.tv.core.auth.AuthManager
-import com.nuvio.tv.domain.model.AuthState
-import com.nuvio.tv.domain.model.ServerConfiguration
 import com.nuvio.tv.livetv.data.LiveTvPreferences
 import dagger.hilt.android.qualifiers.ApplicationContext
-import io.github.jan.supabase.auth.Auth
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -83,10 +79,7 @@ enum class CloudChoice { UseSaved, Combine, Later }
 class LiveTvCloudSync @Inject constructor(
     @ApplicationContext private val context: Context,
     private val prefs: LiveTvPreferences,
-    private val drive: LiveTvDriveSync,
-    private val authManager: AuthManager,
-    private val auth: Auth,
-    private val serverConfiguration: ServerConfiguration
+    private val drive: LiveTvDriveSync
 ) {
     private fun text(@StringRes id: Int, vararg args: Any): String = context.withAppLocale().getString(id, *args)
 
@@ -102,9 +95,8 @@ class LiveTvCloudSync @Inject constructor(
         .build()
     private val json = "application/json; charset=utf-8".toMediaType()
 
-    private val available: Boolean =
-        !serverConfiguration.isCustom &&
-            serverConfiguration.backendUrl.toHttpUrlOrNull()?.host.equals("api.nuvio.tv", ignoreCase = true)
+    // Live TV only build: there is no Nuvio account, so the cloud sync is never available.
+    private val available: Boolean = false
 
     private val _state = MutableStateFlow(
         CloudSyncState(available = available, lastSyncMs = store.getLong(KEY_LAST_SYNC, 0L))
@@ -133,7 +125,6 @@ class LiveTvCloudSync @Inject constructor(
         }
         drive.importListener = { scope.launch { runImport() } }
         // A QR sign-in, or a TV that was already signed in when the app opened: both arrive here.
-        scope.launch { authManager.authState.collect { onAuthState(it) } }
         // This TV's Live TV settings changed: sync shortly after (not for per-TV things like the
         // last channel watched, which aren't part of the setup).
         scope.launch {
@@ -147,27 +138,6 @@ class LiveTvCloudSync @Inject constructor(
                 com.nuvio.tv.livetv.data.BackgroundWork.awaitLiveHold()
                 if (isOn()) syncNow()
             }
-        }
-    }
-
-    private suspend fun onAuthState(authState: AuthState) {
-        when (authState) {
-            is AuthState.FullAccount -> {
-                // "Start in Full Screen": the start-up check waits until the channel is playing.
-                kotlinx.coroutines.withTimeoutOrNull(60_000L) { com.nuvio.tv.livetv.data.BackgroundWork.awaitLiveHold() }
-                userId = authState.userId
-                val on = isEnabled(authState.userId)
-                _state.value = _state.value.copy(signedIn = true, email = authState.email, enabled = on)
-                mutex.withLock {
-                    if (on) reconcileAndReport(authState.userId) else decideFirstTime(authState.userId, explicit = false)
-                }
-            }
-            AuthState.SignedOut -> {
-                userId = null
-                // This TV keeps its setup; it just stops syncing until someone signs in again.
-                _state.value = _state.value.copy(signedIn = false, email = null, enabled = false, prompt = null)
-            }
-            AuthState.Loading -> Unit
         }
     }
 
@@ -608,19 +578,15 @@ class LiveTvCloudSync @Inject constructor(
     /** Calls the service with the Nuvio sign-in; if the sign-in has just expired, refreshes it once and retries. */
     private suspend fun call(method: String, path: String, body: JSONObject? = null): Reply {
         var reply = callOnce(method, path, body)
-        if (reply.code == 401 && authManager.refreshSessionIfJwtExpired(Exception("JWT expired"))) {
-            reply = callOnce(method, path, body)
-        }
         return reply
     }
 
     private suspend fun callOnce(method: String, path: String, body: JSONObject?): Reply = withContext(Dispatchers.IO) {
-        val token = auth.currentAccessTokenOrNull()?.takeIf { it.isNotBlank() }
-            ?: return@withContext Reply(401, null)
+        // No Nuvio account in this build.
+        val token: String = return@withContext Reply(401, null)
         val request = Request.Builder()
             .url(CLOUD_URL + path)
             .header("Authorization", "Bearer $token")
-            .header("apikey", serverConfiguration.publishableKey)
             .method(method, body?.toString()?.toRequestBody(json))
             .build()
         http.newCall(request).execute().use { response ->

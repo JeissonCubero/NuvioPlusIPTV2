@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="livetv_only_menu_live_tv">TV en vivo</string>
+    <string name="livetv_only_menu_search">Buscar</string>
+    <string name="livetv_only_menu_sports">Deportes</string>
+    <string name="livetv_only_menu_recordings">Grabaciones</string>
+    <string name="livetv_only_menu_multiview">Multivista</string>
+    <string name="livetv_only_menu_settings">Ajustes</string>
+</resources>

@@ -25,7 +25,6 @@ dependencyResolutionManagement {
 
 rootProject.name = "My Application"
 include(":app")
-include(":baselineprofile")
 include(":ffmpeg-decoder-downmix")
 include(":vpn-core")
 include(":vpn-android")
