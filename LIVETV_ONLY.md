@@ -24,5 +24,5 @@ Rama `livetv-only`: la app quedó reducida a la parte de IPTV de Nuvio + IPTV.
 (`livetv/only/LiveTvOnlyModule.kt`), porque la guía y Deportes los consultan para pósters y streams.
 
 ## Compilar
-`./gradlew :app:assembleDebug` (o el workflow `.github/workflows/build-livetv.yml`).
-App ID: `com.nuvio.livetv`.
+`./gradlew :app:assembleRelease` (o el workflow `.github/workflows/build-livetv.yml`).
+App ID: `com.nuvio.livetvonly` (se instala aparte de Nuvio y de Nuvio + IPTV).

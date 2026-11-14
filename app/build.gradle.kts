@@ -91,7 +91,7 @@ android {
     ndkVersion = "29.0.14206865"
 
     defaultConfig {
-        applicationId = "com.nuvio.livetv"
+        applicationId = "com.nuvio.livetvonly"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         minSdk = 24
         targetSdk = 36
@@ -356,7 +356,7 @@ androidComponents {
     // Test builds (-PlivetvTestBuild=true) get their own ID, so they install next to the real app.
     onVariants(selector().withBuildType("release")) { variant ->
         val testBuild = (findProperty("livetvTestBuild") as String?)?.toBoolean() == true
-        if (testBuild) variant.applicationId.set("com.nuvio.livetv.test")
+        if (testBuild) variant.applicationId.set("com.nuvio.livetvonly.test")
     }
 }
 
@@ -478,10 +478,8 @@ dependencies {
 
     // Local decoder AARs (AV1, IAMF, MPEG-H)
     implementation(files(
-        "libs/lib-decoder-av1-release.aar",
-        "libs/lib-decoder-mpegh-release.aar"
+        "libs/lib-decoder-av1-release.aar"
     ))
-    implementation(files("libs/lib-nuvio-engine-android-0.1.6.aar"))
     if (useLocalFfmpegDecoder) {
         implementation(project(":ffmpeg-decoder-downmix"))
     } else {

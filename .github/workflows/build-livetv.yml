@@ -56,12 +56,12 @@ jobs:
       - name: Build APK
         run: |
           chmod +x gradlew
-          ./gradlew :app:assembleDebug --stacktrace
+          ./gradlew :app:assembleRelease --stacktrace
 
       - name: Collect APKs
         run: |
           mkdir -p out
-          find app/build/outputs/apk/debug -name "*.apk" -exec cp {} out/ \;
+          find app/build/outputs/apk/release -name "*.apk" -exec cp {} out/ \;
           ls -la out
 
       - name: Upload APKs
