@@ -507,6 +507,9 @@ dependencies {
     // Kotlinx Serialization
     implementation(libs.kotlinx.serialization.json)
 
+    // Live TV guide reports its smoothness (PerformanceMetricsState)
+    implementation("androidx.metrics:metrics-performance:1.0.0-rc01")
+
     // Performance profiling
     debugImplementation("androidx.compose.runtime:runtime-tracing")
 
