@@ -21,4 +21,21 @@
     <string name="livetv_only_vod_search_movies">Buscar películas</string>
     <string name="livetv_only_vod_search_series">Buscar series</string>
     <string name="livetv_only_vod_no_results">No se encontró nada para \"%1$s\".</string>
+    <string name="livetv_only_menu_updates">Buscar actualizaciones</string>
+    <string name="livetv_only_update_checking">Buscando actualizaciones…</string>
+    <string name="livetv_only_update_up_to_date">Tenés la última versión (build %1$d).</string>
+    <string name="livetv_only_update_check_failed">No se pudo buscar actualizaciones. Revisá la conexión a internet.</string>
+    <string name="livetv_only_update_download_failed">No se pudo descargar la actualización. Probá más tarde.</string>
+    <string name="livetv_only_update_available">Hay una actualización</string>
+    <string name="livetv_only_update_available_text">%1$s está lista (%2$d MB). Se instala encima de esta y conserva tus listas y ajustes.</string>
+    <string name="livetv_only_update_now">Actualizar</string>
+    <string name="livetv_only_update_later">Después</string>
+    <string name="livetv_only_update_downloading">Descargando actualización…</string>
+    <string name="livetv_only_update_permission_title">Permitir actualizaciones</string>
+    <string name="livetv_only_update_permission_text">Android tiene que dejar que Live TV instale apps. Activá \"Permitir de esta fuente\" para Live TV y volvé.</string>
+    <string name="livetv_only_update_open_settings">Abrir ajustes</string>
+    <string name="livetv_only_update_permission_manual">Activá \"Instalar apps desconocidas\" para Live TV en los ajustes de la TV y volvé a buscar actualizaciones.</string>
+    <string name="livetv_only_update_ready">Actualización descargada</string>
+    <string name="livetv_only_update_ready_text">Tocá Instalar y confirmá en la pantalla siguiente.</string>
+    <string name="livetv_only_update_install">Instalar</string>
 </resources>

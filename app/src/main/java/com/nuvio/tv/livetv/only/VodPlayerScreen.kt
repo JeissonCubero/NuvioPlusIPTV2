@@ -12,7 +12,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -63,7 +67,7 @@ import kotlinx.coroutines.delay
 /**
  * Live TV only build: plays a movie or an episode from Movies & Series.
  * Remote: OK = play / pause, Left / Right = back / forward 10 s (hold to go faster),
- * Up / Down = show the bar, Back = close.
+ * Up (or Menu) = subtitles & audio, Down = show the bar, Back = close.
  *
  * The picture is Live TV's own player view (the app's player layout has no built-in controls,
  * so PlayerView's controller can't be used), with a small bar drawn on top.
@@ -85,6 +89,9 @@ fun VodPlayerScreen(onClose: () -> Unit) {
     var barShownAt by remember { mutableLongStateOf(System.currentTimeMillis()) }
     var barTick by remember { mutableIntStateOf(0) }
     val focus = remember { FocusRequester() }
+    // Subtitles & audio panel (Up opens it).
+    var tracksOpen by remember { mutableStateOf(false) }
+    var tracksVersion by remember { mutableIntStateOf(0) }
 
     val player = remember {
         val ua = playable.headers["User-Agent"]
@@ -145,6 +152,7 @@ fun VodPlayerScreen(onClose: () -> Unit) {
                 if (state == Player.STATE_ENDED) onClose()
             }
             override fun onIsPlayingChanged(isPlaying: Boolean) { playing = isPlaying }
+            override fun onTracksChanged(tracks: androidx.media3.common.Tracks) { tracksVersion++ }
         }
         player.addListener(listener)
         onDispose {
@@ -175,6 +183,8 @@ fun VodPlayerScreen(onClose: () -> Unit) {
             .background(Color.Black)
             .focusRequester(focus)
             .onPreviewKeyEvent { e ->
+                // The subtitles & audio panel handles its own keys.
+                if (tracksOpen) return@onPreviewKeyEvent false
                 if (e.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
                 when (e.key) {
                     Key.DirectionCenter, Key.Enter, Key.NumPadEnter, Key.MediaPlayPause, Key.Spacebar -> {
@@ -194,7 +204,8 @@ fun VodPlayerScreen(onClose: () -> Unit) {
                         player.seekTo((player.currentPosition - step).coerceAtLeast(0L))
                         showBar(); true
                     }
-                    Key.DirectionUp, Key.DirectionDown -> { showBar(); true }
+                    Key.DirectionUp, Key.Menu, Key.Captions -> { tracksOpen = true; true }
+                    Key.DirectionDown -> { showBar(); true }
                     else -> false
                 }
             }
@@ -256,11 +267,162 @@ fun VodPlayerScreen(onClose: () -> Unit) {
                         fontSize = 15.sp
                     )
                     Spacer(Modifier.weight(1f))
-                    Text("◀ ▶  10 s     OK  ▶/❚❚", color = Color.White.copy(alpha = 0.55f), fontSize = 13.sp)
+                    Text("◀ ▶  10 s     OK  ▶/❚❚     ▲  Subtitles / Audio", color = Color.White.copy(alpha = 0.55f), fontSize = 13.sp)
+                }
+            }
+        }
+
+        if (tracksOpen) {
+            TracksPanel(
+                player = player,
+                version = tracksVersion,
+                onClose = {
+                    tracksOpen = false
+                    runCatching { focus.requestFocus() }
+                }
+            )
+        }
+    }
+}
+
+/** One choice in the subtitles & audio panel. */
+private data class TrackChoice(val label: String, val selected: Boolean, val pick: () -> Unit)
+
+/**
+ * Right-side panel: Subtitles (Off + every subtitle the title has) and Audio (every language).
+ * Up / Down move, OK picks, Back or Left closes.
+ */
+@OptIn(UnstableApi::class)
+@Composable
+private fun TracksPanel(player: ExoPlayer, version: Int, onClose: () -> Unit) {
+    BackHandler(onBack = onClose)
+    val sections = remember(version) { trackSections(player) }
+    val flat = sections.flatMap { it.second }
+    val requesters = remember(flat.size) { List(flat.size) { FocusRequester() } }
+    var index by remember(flat.size) { mutableIntStateOf(flat.indexOfFirst { it.selected }.coerceAtLeast(0)) }
+    LaunchedEffect(flat.size) {
+        if (flat.isNotEmpty()) runCatching { requesters[index.coerceIn(0, flat.lastIndex)].requestFocus() }
+    }
+    fun move(to: Int) {
+        if (flat.isEmpty()) return
+        index = to.coerceIn(0, flat.lastIndex)
+        runCatching { requesters[index].requestFocus() }
+    }
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.CenterEnd) {
+        Column(
+            Modifier
+                .width(380.dp)
+                .fillMaxHeight()
+                .background(Color(0xF0101010))
+                .padding(horizontal = 20.dp, vertical = 28.dp)
+                .onPreviewKeyEvent { e ->
+                    if (e.type != KeyEventType.KeyDown) {
+                        return@onPreviewKeyEvent e.key == Key.DirectionUp || e.key == Key.DirectionDown ||
+                            e.key == Key.DirectionLeft || e.key == Key.DirectionRight
+                    }
+                    when (e.key) {
+                        Key.DirectionDown -> { move(index + 1); true }
+                        Key.DirectionUp -> { move(index - 1); true }
+                        Key.DirectionLeft -> { onClose(); true }
+                        Key.DirectionRight -> true
+                        Key.DirectionCenter, Key.Enter, Key.NumPadEnter -> {
+                            flat.getOrNull(index)?.pick?.invoke(); onClose(); true
+                        }
+                        else -> false
+                    }
+                }
+                .verticalScroll(rememberScrollState())
+        ) {
+            if (flat.isEmpty()) {
+                Text("This title has no subtitles or other audio.", color = Color.White, fontSize = 15.sp)
+            }
+            var i = 0
+            sections.forEach { (title, choices) ->
+                Text(title, color = Color.White.copy(alpha = 0.6f), fontSize = 13.sp, modifier = Modifier.padding(top = 10.dp, bottom = 6.dp))
+                choices.forEach { c ->
+                    val myIndex = i++
+                    TrackRow(c, requesters[myIndex], onFocused = { index = myIndex })
                 }
             }
         }
     }
+}
+
+@Composable
+private fun TrackRow(choice: TrackChoice, focusRequester: FocusRequester, onFocused: () -> Unit) {
+    var focused by remember { mutableStateOf(false) }
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .focusRequester(focusRequester)
+            .onFocusChanged {
+                focused = it.isFocused
+                if (it.isFocused) onFocused()
+            }
+            .focusable()
+            .clip(RoundedCornerShape(10.dp))
+            .background(if (focused) Color.White else Color.Transparent)
+            .padding(horizontal = 14.dp, vertical = 11.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            if (choice.selected) "✓" else "",
+            color = if (focused) Color.Black else Color.White,
+            fontSize = 15.sp,
+            modifier = Modifier.width(24.dp)
+        )
+        Text(choice.label, color = if (focused) Color.Black else Color.White, fontSize = 15.sp, maxLines = 1)
+    }
+}
+
+/** The title's subtitle and audio tracks, as choices that switch the player when picked. */
+@OptIn(UnstableApi::class)
+private fun trackSections(player: ExoPlayer): List<Pair<String, List<TrackChoice>>> {
+    val groups = player.currentTracks.groups
+    val params = player.trackSelectionParameters
+    val textOff = params.disabledTrackTypes.contains(C.TRACK_TYPE_TEXT)
+    val subs = mutableListOf<TrackChoice>()
+    val audio = mutableListOf<TrackChoice>()
+    val anyTextSelected = groups.any { it.type == C.TRACK_TYPE_TEXT && it.isSelected }
+    subs += TrackChoice("Off", selected = textOff || !anyTextSelected) {
+        player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
+            .clearOverridesOfType(C.TRACK_TYPE_TEXT)
+            .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
+            .build()
+    }
+    groups.forEach { g ->
+        if (g.type != C.TRACK_TYPE_TEXT && g.type != C.TRACK_TYPE_AUDIO) return@forEach
+        for (t in 0 until g.length) {
+            if (!g.isTrackSupported(t)) continue
+            val label = trackLabel(g.getTrackFormat(t), if (g.type == C.TRACK_TYPE_TEXT) subs.size else audio.size + 1)
+            val selected = g.isTrackSelected(t) && !(g.type == C.TRACK_TYPE_TEXT && textOff)
+            val choice = TrackChoice(label, selected) {
+                player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
+                    .setTrackTypeDisabled(g.type, false)
+                    .setOverrideForType(androidx.media3.common.TrackSelectionOverride(g.mediaTrackGroup, t))
+                    .build()
+            }
+            if (g.type == C.TRACK_TYPE_TEXT) subs += choice else audio += choice
+        }
+    }
+    val out = mutableListOf<Pair<String, List<TrackChoice>>>()
+    if (subs.size > 1) out += "Subtitles" to subs
+    if (audio.size > 1) out += "Audio" to audio
+    return out
+}
+
+private fun trackLabel(f: androidx.media3.common.Format, n: Int): String {
+    val lang = f.language?.takeIf { it.isNotBlank() && it != "und" }?.let {
+        runCatching { java.util.Locale.forLanguageTag(it).getDisplayLanguage(java.util.Locale.getDefault()) }
+            .getOrNull()?.takeIf { d -> d.isNotBlank() }?.replaceFirstChar { c -> c.titlecase() } ?: it
+    }
+    val name = f.label?.takeIf { it.isNotBlank() }
+    val extra = buildList {
+        if (f.channelCount > 0) add(if (f.channelCount >= 6) "5.1" else if (f.channelCount == 2) "Stereo" else "${f.channelCount} ch")
+        if ((f.selectionFlags and C.SELECTION_FLAG_FORCED) != 0) add("Forced")
+    }
+    val base = listOfNotNull(lang, name?.takeIf { it != lang }).joinToString(" · ").ifBlank { "Track $n" }
+    return if (extra.isEmpty()) base else "$base (${extra.joinToString(", ")})"
 }
 
 @dagger.hilt.EntryPoint

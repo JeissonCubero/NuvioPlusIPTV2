@@ -208,6 +208,9 @@ open class MainActivity : ComponentActivity() {
 
 private data class MenuEntry(val route: String, val labelRes: Int)
 
+/** Menu item that checks for a new version instead of opening a page. */
+private const val UPDATE_ROUTE = "__check_updates"
+
 @Composable
 private fun LiveTvShell(
     startRoute: String,
@@ -219,6 +222,8 @@ private fun LiveTvShell(
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
     var menuOpen by remember { mutableStateOf(false) }
+    // Bumped by "Check for updates" in the menu.
+    var manualUpdateCheck by remember { mutableStateOf(0) }
     val contentFocus = remember { FocusRequester() }
 
     val entries = buildList {
@@ -228,6 +233,7 @@ private fun LiveTvShell(
         if (sportsInMenu) add(MenuEntry(Screen.Sports.route, R.string.livetv_only_menu_sports))
         add(MenuEntry(Screen.Recordings.route, R.string.livetv_only_menu_recordings))
         add(MenuEntry(Screen.LiveTvSettings.route, R.string.livetv_only_menu_settings))
+        add(MenuEntry(UPDATE_ROUTE, R.string.livetv_only_menu_updates))
     }
 
     CompositionLocalProvider(
@@ -238,6 +244,7 @@ private fun LiveTvShell(
     ) {
         Box(Modifier.fillMaxSize().background(Color.Black)) {
             NuvioNavHost(navController = navController, startDestination = startRoute)
+            com.nuvio.tv.livetv.only.UpdateHost(manualCheck = manualUpdateCheck)
 
             AnimatedVisibility(
                 visible = menuOpen,
@@ -261,7 +268,8 @@ private fun LiveTvShell(
                     longPressBackHeld = longPressBackHeld,
                     onPick = { route ->
                         menuOpen = false
-                        navigateToTopLevel(navController, route)
+                        if (route == UPDATE_ROUTE) manualUpdateCheck++
+                        else navigateToTopLevel(navController, route)
                     },
                     onClose = { menuOpen = false },
                     onExit = onExit

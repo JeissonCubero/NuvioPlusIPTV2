@@ -321,7 +321,9 @@ android.defaultConfig.buildConfigField(
 )
 
 val livetvBuildNumber = (findProperty("livetvBuildNumber") as String?)?.toIntOrNull() ?: 0
-android.defaultConfig.versionCode = (android.defaultConfig.versionCode ?: 1) * 100 + livetvBuildNumber
+// Live TV only build: 1,000,000 + the workflow's build number (above every Nuvio-based code), so each
+// GitHub release installs as an update and the app's updater can compare builds.
+android.defaultConfig.versionCode = 1_000_000 + livetvBuildNumber
 (findProperty("livetvVersionName") as String?)?.takeIf { it.isNotBlank() }?.let {
     android.defaultConfig.versionName = it
 }

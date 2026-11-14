@@ -390,38 +390,88 @@ private fun EmptyNote(text: String) {
 
 private fun episodeKey(ep: VodEpisode): String = "${ep.season}:${ep.episode}:${ep.id}"
 
+/**
+ * Search box. On a TV, a text field takes the keyboard as soon as the highlight lands on it, so
+ * this is a button: OK opens the typing, and the keyboard's Search / Done (or Back) ends it.
+ */
 @Composable
 private fun SearchBox(value: String, hint: String, onChange: (String) -> Unit) {
     var focused by remember { mutableStateOf(false) }
+    var editing by remember { mutableStateOf(false) }
+    // After typing, the highlight goes back to the search button.
+    var returnFocus by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(10.dp)
     val keyboard = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
-    androidx.compose.foundation.text.BasicTextField(
-        value = value,
-        onValueChange = onChange,
-        singleLine = true,
-        textStyle = androidx.compose.ui.text.TextStyle(color = Color.White, fontSize = 15.sp),
-        cursorBrush = androidx.compose.ui.graphics.SolidColor(Color.White),
-        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Search),
-        keyboardActions = androidx.compose.foundation.text.KeyboardActions(onSearch = { keyboard?.hide() }),
-        modifier = Modifier
-            .fillMaxWidth()
-            .onFocusChanged { focused = it.isFocused }
-            .background(Color.White.copy(alpha = if (focused) 0.14f else 0.06f), shape)
-            .border(if (focused) 2.dp else 0.dp, if (focused) NuvioTheme.colors.FocusRing else Color.Transparent, shape)
-            .padding(horizontal = 14.dp, vertical = 12.dp),
-        decorationBox = { inner ->
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("🔍", fontSize = 14.sp)
-                Spacer(Modifier.width(8.dp))
-                Box(Modifier.weight(1f)) {
-                    if (value.isEmpty()) Text(hint, color = NuvioTheme.colors.TextSecondary, fontSize = 15.sp, maxLines = 1)
-                    inner()
-                }
-                if (value.isNotEmpty()) {
-                    Text("✕", color = NuvioTheme.colors.TextSecondary, fontSize = 14.sp,
-                        modifier = Modifier.clickable { onChange("") })
+    val fieldFocus = remember { FocusRequester() }
+    val buttonFocus = remember { FocusRequester() }
+    fun stopEditing() {
+        keyboard?.hide()
+        returnFocus = true
+        editing = false
+    }
+    val boxModifier = Modifier
+        .fillMaxWidth()
+        .background(Color.White.copy(alpha = if (focused || editing) 0.14f else 0.06f), shape)
+        .border(if (focused || editing) 2.dp else 0.dp, if (focused || editing) NuvioTheme.colors.FocusRing else Color.Transparent, shape)
+    if (editing) {
+        BackHandler { stopEditing() }
+        LaunchedEffect(Unit) {
+            runCatching { fieldFocus.requestFocus() }
+            keyboard?.show()
+        }
+        androidx.compose.foundation.text.BasicTextField(
+            value = value,
+            onValueChange = onChange,
+            singleLine = true,
+            textStyle = androidx.compose.ui.text.TextStyle(color = Color.White, fontSize = 15.sp),
+            cursorBrush = androidx.compose.ui.graphics.SolidColor(Color.White),
+            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Search),
+            keyboardActions = androidx.compose.foundation.text.KeyboardActions(
+                onSearch = { stopEditing() },
+                onDone = { stopEditing() }
+            ),
+            modifier = boxModifier
+                .focusRequester(fieldFocus)
+                .onFocusChanged { if (!it.isFocused && editing) editing = false }
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            decorationBox = { inner ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("🔍", fontSize = 14.sp)
+                    Spacer(Modifier.width(8.dp))
+                    Box(Modifier.weight(1f)) {
+                        if (value.isEmpty()) Text(hint, color = NuvioTheme.colors.TextSecondary, fontSize = 15.sp, maxLines = 1)
+                        inner()
+                    }
                 }
             }
+        )
+    } else {
+        LaunchedEffect(Unit) {
+            if (returnFocus) {
+                returnFocus = false
+                kotlinx.coroutines.delay(30)
+                runCatching { buttonFocus.requestFocus() }
+            }
         }
-    )
+        Row(
+            boxModifier
+                .focusRequester(buttonFocus)
+                .onFocusChanged { focused = it.isFocused }
+                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { editing = true }
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("🔍", fontSize = 14.sp)
+            Spacer(Modifier.width(8.dp))
+            Text(
+                value.ifEmpty { hint },
+                color = if (value.isEmpty()) NuvioTheme.colors.TextSecondary else Color.White,
+                fontSize = 15.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f)
+            )
+            if (value.isNotEmpty()) Text("✕", color = NuvioTheme.colors.TextSecondary, fontSize = 14.sp)
+        }
+    }
 }

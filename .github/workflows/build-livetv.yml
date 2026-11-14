@@ -8,7 +8,8 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  # Each build is published as a release, which the app's updater reads.
+  contents: write
 
 jobs:
   build:
@@ -56,7 +57,9 @@ jobs:
       - name: Build APK
         run: |
           chmod +x gradlew
-          ./gradlew :app:assembleRelease --stacktrace
+          ./gradlew :app:assembleRelease --stacktrace \
+            -PlivetvBuildNumber=${{ github.run_number }} \
+            -PlivetvVersionName=1.0.${{ github.run_number }}
 
       - name: Collect APKs
         run: |
@@ -81,3 +84,21 @@ jobs:
           name: livetv-only-apks
           path: out/*.apk
           if-no-files-found: error
+
+      # The app checks GitHub's latest release ("build-N") and updates itself from it.
+      - name: Publish release
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          N=${{ github.run_number }}
+          gh release create "build-$N" out/*.apk \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "Live TV 1.0.$N" \
+            --notes "$(git log -1 --pretty=%B)" \
+            --latest
+          # Keep only the last 3 releases (each holds about 120 MB of APKs).
+          gh release list --repo "$GITHUB_REPOSITORY" --limit 100 --json tagName --jq '.[].tagName' \
+            | grep '^build-' | sort -t- -k2 -n -r | tail -n +4 \
+            | while read tag; do gh release delete "$tag" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag; done
