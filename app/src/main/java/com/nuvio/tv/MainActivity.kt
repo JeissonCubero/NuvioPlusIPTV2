@@ -265,7 +265,15 @@ private fun SideMenu(
 ) {
     val requesters = remember(entries.size) { List(entries.size) { FocusRequester() } }
     val selected = entries.indexOfFirst { it.route == currentRoute }.coerceAtLeast(0)
+    // The highlighted item. Up/Down are handled here (not by Android's focus search), so the
+    // highlight can't slip to the page under the menu: one press = one item.
+    var focusedIndex by remember { mutableStateOf(selected) }
     LaunchedEffect(Unit) { runCatching { requesters[selected].requestFocus() } }
+    fun moveTo(index: Int) {
+        val target = index.coerceIn(0, entries.lastIndex)
+        focusedIndex = target
+        runCatching { requesters[target].requestFocus() }
+    }
     // Back in the menu: leave the app (like Nuvio's own menu on its first page).
     BackHandler(enabled = !longPressBackHeld.value) { onExit() }
 
@@ -276,10 +284,19 @@ private fun SideMenu(
             .background(NuvioTheme.colors.BackgroundElevated)
             .padding(horizontal = 16.dp, vertical = 32.dp)
             .onPreviewKeyEvent { e ->
-                // Right closes the menu and goes back to the page.
-                if (e.type == KeyEventType.KeyDown && e.key == Key.DirectionRight) {
-                    onClose(); true
-                } else false
+                if (e.type != KeyEventType.KeyDown) {
+                    // Swallow the matching key-ups too, so the page underneath never sees them.
+                    return@onPreviewKeyEvent e.key == Key.DirectionUp || e.key == Key.DirectionDown ||
+                        e.key == Key.DirectionLeft || e.key == Key.DirectionRight
+                }
+                when (e.key) {
+                    Key.DirectionDown -> { moveTo(focusedIndex + 1); true }
+                    Key.DirectionUp -> { moveTo(focusedIndex - 1); true }
+                    Key.DirectionLeft -> true
+                    // Right closes the menu and goes back to the page.
+                    Key.DirectionRight -> { onClose(); true }
+                    else -> false
+                }
             },
         verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
@@ -294,6 +311,7 @@ private fun SideMenu(
                 label = stringResource(entry.labelRes),
                 active = i == selected,
                 focusRequester = requesters[i],
+                onFocused = { focusedIndex = i },
                 onClick = { onPick(entry.route) }
             )
         }
@@ -306,6 +324,7 @@ private fun MenuItem(
     label: String,
     active: Boolean,
     focusRequester: FocusRequester,
+    onFocused: () -> Unit,
     onClick: () -> Unit
 ) {
     var focused by remember { mutableStateOf(false) }
@@ -322,7 +341,10 @@ private fun MenuItem(
             .background(background)
             .border(if (focused) 2.dp else 0.dp, if (focused) NuvioTheme.colors.FocusRing else Color.Transparent, shape)
             .focusRequester(focusRequester)
-            .onFocusChanged { focused = it.isFocused }
+            .onFocusChanged {
+                focused = it.isFocused
+                if (it.isFocused) onFocused()
+            }
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
