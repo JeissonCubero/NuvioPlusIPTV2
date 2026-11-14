@@ -18,4 +18,7 @@
     <string name="livetv_only_hide_groups_subtitle">Los grupos de la lista cuyo nombre empieza con estas letras no se muestran. Separalas con comas (ej. AR, FR, XXX).</string>
     <string name="livetv_only_hide_groups_none">Ninguno</string>
     <string name="livetv_only_hide_groups_hint">AR, FR, XXX</string>
+    <string name="livetv_only_vod_search_movies">Buscar películas</string>
+    <string name="livetv_only_vod_search_series">Buscar series</string>
+    <string name="livetv_only_vod_no_results">No se encontró nada para \"%1$s\".</string>
 </resources>

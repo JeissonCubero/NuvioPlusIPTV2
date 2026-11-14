@@ -19,4 +19,7 @@
     <string name="livetv_only_hide_groups_subtitle">Playlist groups whose name starts with these letters are hidden. Separate them with commas (e.g. AR, FR, XXX).</string>
     <string name="livetv_only_hide_groups_none">None</string>
     <string name="livetv_only_hide_groups_hint">AR, FR, XXX</string>
+    <string name="livetv_only_vod_search_movies">Search movies</string>
+    <string name="livetv_only_vod_search_series">Search series</string>
+    <string name="livetv_only_vod_no_results">Nothing found for \"%1$s\".</string>
 </resources>

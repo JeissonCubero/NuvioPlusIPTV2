@@ -43,7 +43,9 @@ data class VodUiState(
     val series: VodItem? = null,
     val episodes: List<VodEpisode> = emptyList(),
     val episodesLoading: Boolean = false,
-    val message: String? = null
+    val message: String? = null,
+    /** What's typed in the search box; while it's not blank the grid shows matches. */
+    val query: String = ""
 )
 
 /**
@@ -91,9 +93,16 @@ class VodViewModel @Inject constructor(
         reload()
     }
 
+    /** Search box: matches by title in Movies or Series (whichever is picked), as you type. */
+    fun setQuery(text: String) {
+        _state.update { it.copy(query = text) }
+        loadItems(reset = true)
+    }
+
     fun selectCategory(category: VodCategory?) {
-        if (category?.uid == _state.value.category?.uid && _state.value.items.isNotEmpty()) return
-        _state.update { it.copy(category = category, items = emptyList(), endReached = false) }
+        if (category?.uid == _state.value.category?.uid && _state.value.items.isNotEmpty() && _state.value.query.isBlank()) return
+        // Picking a category leaves the search.
+        _state.update { it.copy(category = category, items = emptyList(), endReached = false, query = "") }
         loadItems(reset = true)
     }
 
@@ -131,6 +140,14 @@ class VodViewModel @Inject constructor(
         loadJob = viewModelScope.launch {
             val s = _state.value
             _state.update { it.copy(loading = true) }
+            val q = s.query.trim()
+            if (q.isNotEmpty()) {
+                // Waits for a pause in typing, then searches the whole catalog of this kind.
+                kotlinx.coroutines.delay(350)
+                val found = if (q.length < 2) emptyList() else repo.search(s.kind, q, hiddenAndLocked())
+                _state.update { it.copy(items = found, loading = false, endReached = true) }
+                return@launch
+            }
             val hidden = hiddenAndLocked()
             val offset = if (reset) 0 else s.items.size
             val page = repo.items(

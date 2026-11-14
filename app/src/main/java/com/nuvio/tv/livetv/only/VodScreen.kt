@@ -96,15 +96,23 @@ fun VodScreen(
                         viewModel.selectKind(VodKind.SERIES)
                     }
                 }
-                Spacer(Modifier.height(16.dp))
+                Spacer(Modifier.height(12.dp))
+                SearchBox(
+                    value = state.query,
+                    hint = stringResource(
+                        if (state.kind == VodKind.MOVIE) R.string.livetv_only_vod_search_movies else R.string.livetv_only_vod_search_series
+                    ),
+                    onChange = viewModel::setQuery
+                )
+                Spacer(Modifier.height(12.dp))
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(2.dp), contentPadding = PaddingValues(bottom = 24.dp)) {
                     item(key = "all") {
-                        ListRow(stringResource(R.string.livetv_only_vod_all), null, selected = state.category == null) {
+                        ListRow(stringResource(R.string.livetv_only_vod_all), null, selected = state.category == null && state.query.isBlank()) {
                             viewModel.selectCategory(null)
                         }
                     }
                     items(state.categories, key = { it.uid }) { c ->
-                        ListRow(c.name, c.count.toString(), selected = state.category?.uid == c.uid) {
+                        ListRow(c.name, c.count.toString(), selected = state.category?.uid == c.uid && state.query.isBlank()) {
                             viewModel.selectCategory(c)
                         }
                     }
@@ -115,6 +123,8 @@ fun VodScreen(
             Box(Modifier.weight(1f).fillMaxHeight()) {
                 when {
                     !state.hasContent && !state.loading -> EmptyNote(stringResource(R.string.livetv_only_vod_empty))
+                    state.items.isEmpty() && !state.loading && state.query.isNotBlank() ->
+                        EmptyNote(stringResource(R.string.livetv_only_vod_no_results, state.query.trim()))
                     state.items.isEmpty() && !state.loading -> EmptyNote(stringResource(R.string.livetv_only_vod_nothing_here))
                     else -> PosterGrid(
                         items = state.items,
@@ -379,3 +389,39 @@ private fun EmptyNote(text: String) {
 }
 
 private fun episodeKey(ep: VodEpisode): String = "${ep.season}:${ep.episode}:${ep.id}"
+
+@Composable
+private fun SearchBox(value: String, hint: String, onChange: (String) -> Unit) {
+    var focused by remember { mutableStateOf(false) }
+    val shape = RoundedCornerShape(10.dp)
+    val keyboard = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
+    androidx.compose.foundation.text.BasicTextField(
+        value = value,
+        onValueChange = onChange,
+        singleLine = true,
+        textStyle = androidx.compose.ui.text.TextStyle(color = Color.White, fontSize = 15.sp),
+        cursorBrush = androidx.compose.ui.graphics.SolidColor(Color.White),
+        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Search),
+        keyboardActions = androidx.compose.foundation.text.KeyboardActions(onSearch = { keyboard?.hide() }),
+        modifier = Modifier
+            .fillMaxWidth()
+            .onFocusChanged { focused = it.isFocused }
+            .background(Color.White.copy(alpha = if (focused) 0.14f else 0.06f), shape)
+            .border(if (focused) 2.dp else 0.dp, if (focused) NuvioTheme.colors.FocusRing else Color.Transparent, shape)
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        decorationBox = { inner ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("🔍", fontSize = 14.sp)
+                Spacer(Modifier.width(8.dp))
+                Box(Modifier.weight(1f)) {
+                    if (value.isEmpty()) Text(hint, color = NuvioTheme.colors.TextSecondary, fontSize = 15.sp, maxLines = 1)
+                    inner()
+                }
+                if (value.isNotEmpty()) {
+                    Text("✕", color = NuvioTheme.colors.TextSecondary, fontSize = 14.sp,
+                        modifier = Modifier.clickable { onChange("") })
+                }
+            }
+        }
+    )
+}
