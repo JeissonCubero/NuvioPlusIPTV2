@@ -147,6 +147,18 @@ open class MainActivity : ComponentActivity() {
                     }
             }
         }
+        // Once, after updating to this version: watch full screen first, the guide only when asked
+        // for (Back from full screen, or Left for the channel list on top of the picture).
+        // Both switches stay in Settings → Live TV.
+        val onceFlags = getSharedPreferences("livetv_only", MODE_PRIVATE)
+        if (!onceFlags.getBoolean("fullscreen_first_v1", false)) {
+            lifecycleScope.launch {
+                runCatching {
+                    liveTvPreferences.updateSettings { it.copy(autoPlayLastChannel = true, openFullscreenOnSelect = true) }
+                    onceFlags.edit().putBoolean("fullscreen_first_v1", true).apply()
+                }
+            }
+        }
         // Scheduled recordings (sets their alarms; series look for new airings).
         runCatching { liveTvRecordingScheduler.start() }
         runCatching { onDemandRepository.start() }

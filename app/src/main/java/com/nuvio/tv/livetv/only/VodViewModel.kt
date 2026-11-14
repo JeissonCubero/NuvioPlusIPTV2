@@ -57,6 +57,12 @@ class VodViewModel @Inject constructor(
     private val stalker: StalkerGateway
 ) : ViewModel() {
 
+    /** The title opened last (its card gets the highlight back when you return). */
+    var lastOpenedUid: String? = null
+
+    /** The episode played last in the open series. */
+    var lastEpisodeKey: String? = null
+
     private val _state = MutableStateFlow(VodUiState())
     val state: StateFlow<VodUiState> = _state.asStateFlow()
     private var loadJob: Job? = null

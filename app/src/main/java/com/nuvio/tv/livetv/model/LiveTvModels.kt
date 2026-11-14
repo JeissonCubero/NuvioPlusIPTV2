@@ -342,9 +342,11 @@ data class LiveTvSettings(
     val epgOffsetMinutes: Int = 0,
     val reverseZap: Boolean = false,
     val zapMode: ZapMode = ZapMode.GROUP,
-    val autoPlayLastChannel: Boolean = false,
+    // Live TV only build: on by default, so the app opens straight into the last channel.
+    val autoPlayLastChannel: Boolean = true,
     val rememberLastGroup: Boolean = true,
-    val openFullscreenOnSelect: Boolean = false,
+    // Live TV only build: on by default, picking a channel plays it full screen (guide on Back).
+    val openFullscreenOnSelect: Boolean = true,
     val infoBannerSeconds: Int = 5,
     val playlistRefreshHours: Int = 24,
     val epgRefreshHours: Int = 12,

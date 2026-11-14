@@ -69,10 +69,21 @@ fun VodScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val firstFocus = remember { FocusRequester() }
-    LaunchedEffect(Unit) { runCatching { firstFocus.requestFocus() } }
+    // The title you opened last gets the highlight back (after a movie, or closing a series).
+    val restoreFocus = remember { FocusRequester() }
+    val gridState = rememberLazyGridState()
+    val seriesOpen = state.series != null
+    LaunchedEffect(seriesOpen) {
+        if (seriesOpen) return@LaunchedEffect
+        kotlinx.coroutines.delay(60)
+        val restored = viewModel.lastOpenedUid != null && runCatching { restoreFocus.requestFocus() }.isSuccess
+        if (!restored) runCatching { firstFocus.requestFocus() }
+    }
 
     Box(Modifier.fillMaxSize().background(NuvioTheme.colors.Background)) {
-        Row(Modifier.fillMaxSize().padding(start = 32.dp, top = 28.dp, end = 24.dp)) {
+        // While a series' episodes are open, only that panel is on screen: nothing behind it can
+        // take the highlight (Down used to slide into the categories under the panel).
+        if (!seriesOpen) Row(Modifier.fillMaxSize().padding(start = 32.dp, top = 28.dp, end = 24.dp)) {
             // ---- Movies / Series and categories
             Column(Modifier.width(260.dp).fillMaxHeight()) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -107,8 +118,12 @@ fun VodScreen(
                     state.items.isEmpty() && !state.loading -> EmptyNote(stringResource(R.string.livetv_only_vod_nothing_here))
                     else -> PosterGrid(
                         items = state.items,
+                        gridState = gridState,
+                        restoreUid = viewModel.lastOpenedUid,
+                        restoreFocus = restoreFocus,
                         onEnd = viewModel::loadMore,
                         onOpen = { item ->
+                            viewModel.lastOpenedUid = item.uid
                             if (item.kind == VodKind.MOVIE) viewModel.playMovie(item, onPlay) else viewModel.openSeries(item)
                         }
                     )
@@ -121,8 +136,12 @@ fun VodScreen(
                 series = series,
                 episodes = state.episodes,
                 loading = state.episodesLoading,
-                onPlay = { ep -> viewModel.playEpisode(series, ep, onPlay) },
-                onClose = viewModel::closeSeries
+                lastEpisodeKey = viewModel.lastEpisodeKey,
+                onPlay = { ep ->
+                    viewModel.lastEpisodeKey = episodeKey(ep)
+                    viewModel.playEpisode(series, ep, onPlay)
+                },
+                onClose = { viewModel.lastEpisodeKey = null; viewModel.closeSeries() }
             )
         }
 
@@ -146,8 +165,14 @@ fun VodScreen(
 }
 
 @Composable
-private fun PosterGrid(items: List<VodItem>, onEnd: () -> Unit, onOpen: (VodItem) -> Unit) {
-    val gridState = rememberLazyGridState()
+private fun PosterGrid(
+    items: List<VodItem>,
+    gridState: androidx.compose.foundation.lazy.grid.LazyGridState,
+    restoreUid: String?,
+    restoreFocus: FocusRequester,
+    onEnd: () -> Unit,
+    onOpen: (VodItem) -> Unit
+) {
     val nearEnd by remember {
         derivedStateOf {
             val last = gridState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
@@ -163,17 +188,18 @@ private fun PosterGrid(items: List<VodItem>, onEnd: () -> Unit, onOpen: (VodItem
         contentPadding = PaddingValues(top = 4.dp, bottom = 32.dp, end = 8.dp)
     ) {
         itemsIndexed(items, key = { _, it -> it.uid }) { _, item ->
-            PosterCard(item) { onOpen(item) }
+            PosterCard(item, if (item.uid == restoreUid) restoreFocus else null) { onOpen(item) }
         }
     }
 }
 
 @Composable
-private fun PosterCard(item: VodItem, onClick: () -> Unit) {
+private fun PosterCard(item: VodItem, focusRequester: FocusRequester?, onClick: () -> Unit) {
     var focused by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(10.dp)
     Column(
         Modifier
+            .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
             .onFocusChanged { focused = it.isFocused }
             .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClick)
     ) {
@@ -219,16 +245,25 @@ private fun EpisodesPanel(
     series: VodItem,
     episodes: List<VodEpisode>,
     loading: Boolean,
+    lastEpisodeKey: String?,
     onPlay: (VodEpisode) -> Unit,
     onClose: () -> Unit
 ) {
     BackHandler(onBack = onClose)
     val seasons = remember(episodes) { episodes.map { it.season }.distinct() }
-    var season by remember(seasons) { mutableStateOf(seasons.firstOrNull()) }
+    // Back from an episode: its season, with the highlight on it.
+    val lastEpisode = remember(episodes, lastEpisodeKey) { episodes.firstOrNull { episodeKey(it) == lastEpisodeKey } }
+    var season by remember(seasons) { mutableStateOf(lastEpisode?.season ?: seasons.firstOrNull()) }
     val firstFocus = remember { FocusRequester() }
-    LaunchedEffect(seasons.isNotEmpty()) { if (seasons.isNotEmpty()) runCatching { firstFocus.requestFocus() } }
+    val episodeFocus = remember { FocusRequester() }
+    LaunchedEffect(seasons.isNotEmpty()) {
+        if (seasons.isEmpty()) return@LaunchedEffect
+        kotlinx.coroutines.delay(60)
+        val onEpisode = lastEpisode != null && runCatching { episodeFocus.requestFocus() }.isSuccess
+        if (!onEpisode) runCatching { firstFocus.requestFocus() }
+    }
 
-    Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.92f))) {
+    Box(Modifier.fillMaxSize().background(NuvioTheme.colors.Background)) {
         Row(Modifier.fillMaxSize().padding(40.dp)) {
             Column(Modifier.width(220.dp)) {
                 AsyncImage(
@@ -257,12 +292,13 @@ private fun EpisodesPanel(
                 }
                 Spacer(Modifier.height(16.dp))
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    items(episodes.filter { it.season == season }, key = { "${it.season}:${it.episode}:${it.id}" }) { ep ->
+                    items(episodes.filter { it.season == season }, key = { episodeKey(it) }) { ep ->
                         ListRow(
                             "${ep.episode}. " + ep.title.ifBlank { "Episode ${ep.episode}" },
                             null,
-                            selected = false,
-                            height = 52.dp
+                            selected = lastEpisode != null && episodeKey(ep) == episodeKey(lastEpisode),
+                            height = 52.dp,
+                            focusRequester = if (lastEpisode != null && episodeKey(ep) == episodeKey(lastEpisode)) episodeFocus else null
                         ) { onPlay(ep) }
                     }
                 }
@@ -299,12 +335,14 @@ private fun ListRow(
     trailing: String?,
     selected: Boolean,
     height: Dp = 44.dp,
+    focusRequester: FocusRequester? = null,
     onClick: () -> Unit
 ) {
     var focused by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(10.dp)
     Row(
         Modifier
+            .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
             .fillMaxWidth()
             .height(height)
             .clip(shape)
@@ -339,3 +377,5 @@ private fun EmptyNote(text: String) {
         Text(text, color = NuvioTheme.colors.TextSecondary, fontSize = 16.sp, modifier = Modifier.padding(48.dp))
     }
 }
+
+private fun episodeKey(ep: VodEpisode): String = "${ep.season}:${ep.episode}:${ep.id}"
