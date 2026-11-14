@@ -78,7 +78,7 @@ val LocalContentFocusRequester = compositionLocalOf { FocusRequester.Default }
 
 /**
  * Live TV only build: the app's one screen. It holds the Live TV pages and a simple side
- * menu (Live TV, Search, Sports, Recordings, Multiview, Settings) in place of Nuvio's.
+ * menu (Live TV, Search, Movies & Series, Sports, Recordings, Settings) in place of Nuvio's.
  *
  * Open so the launcher icon choices (see livetv/branding) can each be their own activity.
  */
@@ -99,6 +99,10 @@ open class MainActivity : ComponentActivity() {
 
     // Set up with the app, so the Live TV player's settings and callbacks are in place
     // whatever screen starts a channel.
+    // Movies & Series: imports your providers' catalogs (On Demand) in the background.
+    @Inject
+    lateinit var onDemandRepository: com.nuvio.tv.livetv.ondemand.OnDemandRepository
+
     @Inject
     lateinit var liveTvPlayerHooks: com.nuvio.tv.livetv.player.LiveTvPlayerHooks
 
@@ -145,6 +149,7 @@ open class MainActivity : ComponentActivity() {
         }
         // Scheduled recordings (sets their alarms; series look for new airings).
         runCatching { liveTvRecordingScheduler.start() }
+        runCatching { onDemandRepository.start() }
         window?.setBackgroundDrawable(ColorDrawable(android.graphics.Color.BLACK))
 
         val startRoute = when (com.nuvio.tv.livetv.startup.StartPage.cachedRoute(this)) {
@@ -207,9 +212,9 @@ private fun LiveTvShell(
     val entries = buildList {
         add(MenuEntry(Screen.LiveTv.route, R.string.livetv_only_menu_live_tv))
         add(MenuEntry(Screen.Search.route, R.string.livetv_only_menu_search))
+        add(MenuEntry(Screen.OnDemand.route, R.string.livetv_only_menu_vod))
         if (sportsInMenu) add(MenuEntry(Screen.Sports.route, R.string.livetv_only_menu_sports))
         add(MenuEntry(Screen.Recordings.route, R.string.livetv_only_menu_recordings))
-        add(MenuEntry(Screen.LiveTvMultiview.route, R.string.livetv_only_menu_multiview))
         add(MenuEntry(Screen.LiveTvSettings.route, R.string.livetv_only_menu_settings))
     }
 

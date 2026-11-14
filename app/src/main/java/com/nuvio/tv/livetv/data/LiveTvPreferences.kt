@@ -113,6 +113,7 @@ class LiveTvPreferences @Inject constructor(
         val vodSearchCatalog = booleanPreferencesKey("vod_search_catalog")
         val vodSearchOnDemand = booleanPreferencesKey("vod_search_ondemand")
         val showAllGroup = booleanPreferencesKey("show_all_group")
+        val hiddenGroupPrefixes = stringPreferencesKey("hidden_group_prefixes")
         val resumeInPreview = booleanPreferencesKey("resume_in_preview")
         val showGroupCounts = booleanPreferencesKey("show_group_counts")
         val smallHeader = booleanPreferencesKey("small_header")
@@ -433,6 +434,7 @@ class LiveTvPreferences @Inject constructor(
             onDemandSearchCatalog = p[Keys.vodSearchCatalog] ?: d.onDemandSearchCatalog,
             onDemandSearchOnDemand = p[Keys.vodSearchOnDemand] ?: d.onDemandSearchOnDemand,
             showAllChannelsGroup = p[Keys.showAllGroup] ?: d.showAllChannelsGroup,
+            hiddenGroupPrefixes = p[Keys.hiddenGroupPrefixes] ?: d.hiddenGroupPrefixes,
             resumeLastInPreview = p[Keys.resumeInPreview] ?: d.resumeLastInPreview,
             showGroupCounts = p[Keys.showGroupCounts] ?: d.showGroupCounts,
             smallHeader = p[Keys.smallHeader] ?: d.smallHeader,
@@ -765,6 +767,7 @@ class LiveTvPreferences @Inject constructor(
         p[Keys.vodSearchCatalog] = s.onDemandSearchCatalog
         p[Keys.vodSearchOnDemand] = s.onDemandSearchOnDemand
         p[Keys.showAllGroup] = s.showAllChannelsGroup
+        p[Keys.hiddenGroupPrefixes] = s.hiddenGroupPrefixes
         p[Keys.resumeInPreview] = s.resumeLastInPreview
         p[Keys.showGroupCounts] = s.showGroupCounts
         p[Keys.smallHeader] = s.smallHeader

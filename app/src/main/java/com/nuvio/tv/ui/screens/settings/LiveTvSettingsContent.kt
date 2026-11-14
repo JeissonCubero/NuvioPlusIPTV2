@@ -238,6 +238,7 @@ private sealed interface LiveDialog {
     data object LoadReport : LiveDialog
     data object HomeRowSource : LiveDialog
     data object HomeRowTitle : LiveDialog
+    data object HiddenGroupPrefixes : LiveDialog
     data class ConfirmDeletePlaylist(val source: PlaylistSource) : LiveDialog
     data class ConfirmDeleteEpg(val source: EpgSource) : LiveDialog
     /** "Are you sure?" before a reset, clear or similar. */
@@ -673,6 +674,12 @@ internal fun LiveTvSettingsContent(
                         context.getString(R.string.iptv_settings_the_group_with_every_channel_in_it),
                         s.showAllChannelsGroup,
                         { update { it.copy(showAllChannelsGroup = !it.showAllChannelsGroup) } }
+                    )
+                    SettingsActionRow(
+                        title = context.getString(R.string.livetv_only_hide_groups_title),
+                        subtitle = context.getString(R.string.livetv_only_hide_groups_subtitle),
+                        value = s.hiddenGroupPrefixes.ifBlank { context.getString(R.string.livetv_only_hide_groups_none) },
+                        onClick = { dialog = LiveDialog.HiddenGroupPrefixes }
                     )
                     SubHeading(context.getString(R.string.iptv_settings_the_list))
                     SettingsToggleRow(
@@ -1897,6 +1904,17 @@ internal fun LiveTvSettingsContent(
             selectedValue = s.homeRowSource.ifBlank { "favorites" },
             onOptionSelected = { v -> update { it.copy(homeRowSource = v) }; close() },
             onDismiss = close
+        )
+        LiveDialog.HiddenGroupPrefixes -> TextInputDialog(
+            title = context.getString(R.string.livetv_only_hide_groups_title),
+            initial = s.hiddenGroupPrefixes,
+            hint = context.getString(R.string.livetv_only_hide_groups_hint),
+            confirmLabel = context.getString(R.string.action_save),
+            onDismiss = close,
+            onConfirm = { t ->
+                val cleaned = t.split(',', ';').map { it.trim() }.filter { it.isNotEmpty() }.joinToString(", ")
+                update { it.copy(hiddenGroupPrefixes = cleaned) }; close()
+            }
         )
         LiveDialog.HomeRowTitle -> TextInputDialog(
             title = context.getString(R.string.iptv_settings_home_row_title),

@@ -24,7 +24,8 @@ internal fun liveTvChannelVisibility(
 ): LiveTvChannelVisibility {
     // A hidden playlist group can still supply custom groups, but never the all-channels picker.
     val notHidden = channels.filter { it.key !in user.hiddenChannels }
-    val shown = notHidden.filter { it.groupId !in user.hiddenGroups }
+    val prefixes = groupPrefixes(settings.hiddenGroupPrefixes)
+    val shown = notHidden.filter { it.groupId !in user.hiddenGroups && !startsWithAny(it.group, prefixes) }
     val lockedIds = HashSet<String>()
     notHidden.distinctBy { it.groupId }.forEach { channel ->
         if (ParentalControls.isLocked(channel.groupId, channel.group, settings, user.lockedGroups)) {
@@ -35,6 +36,18 @@ internal fun liveTvChannelVisibility(
         if (ParentalControls.isLocked(group.id, group.name, settings, user.lockedGroups)) lockedIds += group.id
     }
     return LiveTvChannelVisibility(notHidden, shown, lockedIds, shown.filter { it.groupId !in lockedIds })
+}
+
+/** "AR, |es" -> ["ar", "es"]: the starts the user typed, ready to compare. */
+internal fun groupPrefixes(raw: String): List<String> =
+    raw.split(',', ';', '\n').map { it.trim().lowercase() }.filter { it.isNotEmpty() }
+
+/** Group names often start with symbols ("|AR| Sports", "[ES] Cine"): those are skipped too. */
+internal fun startsWithAny(groupName: String, prefixes: List<String>): Boolean {
+    if (prefixes.isEmpty()) return false
+    val name = groupName.trim().lowercase()
+    val bare = name.trimStart { !it.isLetterOrDigit() }
+    return prefixes.any { p -> name.startsWith(p) || bare.startsWith(p.trimStart { !it.isLetterOrDigit() }.ifEmpty { p }) }
 }
 
 internal fun sortLiveTvChannels(channels: List<LiveChannel>, sort: ChannelSort): List<LiveChannel> = when (sort) {
@@ -63,6 +76,7 @@ internal fun allowedLiveTvChannelsFlow(
     },
     settings.distinctUntilChanged { previous, next ->
         previous.channelSort == next.channelSort && previous.parentalPin == next.parentalPin &&
+            previous.hiddenGroupPrefixes == next.hiddenGroupPrefixes &&
             previous.lockAdultContent == next.lockAdultContent
     },
     unlocked,

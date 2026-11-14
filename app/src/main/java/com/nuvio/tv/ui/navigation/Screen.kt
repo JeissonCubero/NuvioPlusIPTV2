@@ -1,7 +1,7 @@
 package com.nuvio.tv.ui.navigation
 
 /**
- * Live TV only build: the app's pages. Home, Search, Library, Calendar and On Demand are kept
+ * Live TV only build: the app's pages. Home, Library and Calendar are kept
  * only as names (Live TV code still compares routes with them); they are not in the navigation.
  */
 sealed class Screen(val route: String) {
@@ -14,7 +14,9 @@ sealed class Screen(val route: String) {
     data object LiveTvMultiview : Screen("live_tv_multiview")
     data object SportsMultiview : Screen("sports_multiview")
     data object LiveTvSettings : Screen("live_tv_settings")
+    /** Movies & Series from your provider. */
     data object OnDemand : Screen("on_demand")
+    data object VodPlayer : Screen("vod_player")
     /** Recorded shows. */
     data object Recordings : Screen("recordings")
     data object Calendar : Screen("calendar")

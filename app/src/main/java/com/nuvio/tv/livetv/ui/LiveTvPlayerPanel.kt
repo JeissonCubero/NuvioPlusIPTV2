@@ -151,7 +151,7 @@ internal fun panelControls(mode: PanelMode, paused: Boolean, canSkip: Boolean, b
     if (bell) add(PanelControl.BELL)
     // Other copies of this channel (same name, any quality or playlist), right before the gear.
     if (backups) add(PanelControl.BACKUPS)
-    if (sports) add(PanelControl.SPORTS)
+    // Live TV only build: no Multiview button for games.
     add(PanelControl.MORE)
 }
 

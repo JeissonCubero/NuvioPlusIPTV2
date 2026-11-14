@@ -6,4 +6,16 @@
     <string name="livetv_only_menu_recordings">Grabaciones</string>
     <string name="livetv_only_menu_multiview">Multivista</string>
     <string name="livetv_only_menu_settings">Ajustes</string>
+    <string name="livetv_only_menu_vod">Películas y series</string>
+    <string name="livetv_only_vod_movies">Películas</string>
+    <string name="livetv_only_vod_series">Series</string>
+    <string name="livetv_only_vod_all">Todo</string>
+    <string name="livetv_only_vod_empty">Todavía no hay películas ni series. Vienen de las listas Xtream / Stalker con \"Importar On Demand\" activado y aparecen un rato después de abrir la app.</string>
+    <string name="livetv_only_vod_nothing_here">No hay nada en esta categoría.</string>
+    <string name="livetv_only_vod_loading_episodes">Cargando episodios…</string>
+    <string name="livetv_only_vod_season">Temporada %1$d</string>
+    <string name="livetv_only_hide_groups_title">Ocultar grupos que empiezan con</string>
+    <string name="livetv_only_hide_groups_subtitle">Los grupos de la lista cuyo nombre empieza con estas letras no se muestran. Separalas con comas (ej. AR, FR, XXX).</string>
+    <string name="livetv_only_hide_groups_none">Ninguno</string>
+    <string name="livetv_only_hide_groups_hint">AR, FR, XXX</string>
 </resources>

@@ -726,7 +726,6 @@ private fun SportsHub(
             item(key = CHIP_TABLES) { FilterIcon("🏆", "Tables", effectiveChip == CHIP_TABLES, upTo, withLabel = true) { pickChip(CHIP_TABLES) } }
             // Each league's own channel (NFL Network, NBA TV…).
             item(key = CHIP_NETWORKS) { FilterIcon("📡", "League Networks", effectiveChip == CHIP_NETWORKS, upTo, withLabel = true) { pickChip(CHIP_NETWORKS) } }
-            item(key = "multiview") { FilterIcon("▦", "Multiview", false, upTo, withLabel = true, onClick = onOpenMultiview) }
             // Sports you follow: My Teams for that sport only.
             if (followedSports.size > 1) {
                 item(key = "sep1") { ChipGap() }

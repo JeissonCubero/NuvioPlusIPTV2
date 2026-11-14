@@ -7,4 +7,16 @@
     <string name="livetv_only_menu_recordings">Recordings</string>
     <string name="livetv_only_menu_multiview">Multiview</string>
     <string name="livetv_only_menu_settings">Settings</string>
+    <string name="livetv_only_menu_vod">Movies &amp; Series</string>
+    <string name="livetv_only_vod_movies">Movies</string>
+    <string name="livetv_only_vod_series">Series</string>
+    <string name="livetv_only_vod_all">All</string>
+    <string name="livetv_only_vod_empty">No movies or series yet. They come from Xtream / Stalker logins with \"Import On Demand\" on, and appear a little after the app opens.</string>
+    <string name="livetv_only_vod_nothing_here">Nothing in this category.</string>
+    <string name="livetv_only_vod_loading_episodes">Loading episodes…</string>
+    <string name="livetv_only_vod_season">Season %1$d</string>
+    <string name="livetv_only_hide_groups_title">Hide groups starting with</string>
+    <string name="livetv_only_hide_groups_subtitle">Playlist groups whose name starts with these letters are hidden. Separate them with commas (e.g. AR, FR, XXX).</string>
+    <string name="livetv_only_hide_groups_none">None</string>
+    <string name="livetv_only_hide_groups_hint">AR, FR, XXX</string>
 </resources>

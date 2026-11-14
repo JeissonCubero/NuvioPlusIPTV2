@@ -16,8 +16,8 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import com.nuvio.tv.ui.theme.NuvioMotion
 
 /**
- * Live TV only build: the app's navigation (Live TV guide, search, Sports, Recordings,
- * Multiview and Live TV settings). Nuvio's own pages (Home, details, search, its player…) are gone.
+ * Live TV only build: the app's navigation (Live TV guide, search, Movies & Series, Sports,
+ * Recordings and Live TV settings). Nuvio's own pages (Home, details, search, its player…) are gone.
  */
 @Composable
 fun NuvioNavHost(
@@ -85,6 +85,16 @@ private fun LiveTvNavGraph(navController: NavHostController, startDestination: S
             com.nuvio.tv.livetv.only.LiveTvSearchScreen(
                 onOpenLiveTv = { com.nuvio.tv.livetv.sports.openLiveTvFullscreen(navController) }
             )
+        }
+
+        composable(Screen.OnDemand.route) {
+            com.nuvio.tv.livetv.only.VodScreen(
+                onPlay = { navController.navigate(Screen.VodPlayer.route) { launchSingleTop = true } }
+            )
+        }
+
+        composable(Screen.VodPlayer.route) {
+            com.nuvio.tv.livetv.only.VodPlayerScreen(onClose = { navController.popBackStack() })
         }
 
         composable(Screen.Recordings.route) {

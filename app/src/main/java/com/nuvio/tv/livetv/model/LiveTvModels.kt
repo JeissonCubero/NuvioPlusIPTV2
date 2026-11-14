@@ -372,6 +372,8 @@ data class LiveTvSettings(
     val onDemandSearchCatalog: Boolean = false,
     val onDemandSearchOnDemand: Boolean = true,
     val showAllChannelsGroup: Boolean = true,
+    /** Playlist groups whose name starts with any of these are hidden (comma separated, any case). */
+    val hiddenGroupPrefixes: String = "",
     /** When Live TV opens, start the last channel in the preview window and highlight it. */
     val resumeLastInPreview: Boolean = true,
     /** Show how many channels each group has in the guide's group list. */

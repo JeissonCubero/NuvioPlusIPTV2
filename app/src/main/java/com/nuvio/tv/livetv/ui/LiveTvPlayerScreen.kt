@@ -1431,9 +1431,8 @@ fun LiveTvPlayerScreen(
                         }
                     },
                 onReload = { dialog = PlayerDialog.NONE; viewModel.playback.retry() },
-                onMultiview = if (archive) null else {
-                    { dialog = PlayerDialog.NONE; com.nuvio.tv.livetv.multiview.MultiviewQueue.addAndAnnounce(ch.key) }
-                },
+                // Live TV only build: no "Add to Multiview".
+                onMultiview = null,
                 onHide = {
                     viewModel.hideChannel(ch)
                     dialog = PlayerDialog.NONE

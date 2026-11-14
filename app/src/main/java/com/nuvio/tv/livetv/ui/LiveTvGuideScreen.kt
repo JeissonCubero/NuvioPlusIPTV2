@@ -2497,8 +2497,7 @@ private fun GuideHeader(
             LiveText("Live TV", size = 16.sp, weight = FontWeight.Bold, modifier = Modifier.weight(1f))
             status?.let { LiveText(it, color = NuvioTheme.colors.TextSecondary, size = 13.sp) }
             Spacer(Modifier.width(16.dp))
-            GuideMultiviewButton(onOpen = onMultiview, onDown = onGearDown)
-            Spacer(Modifier.width(6.dp))
+            // Live TV only build: no Multiview button.
             GuideRecordingsButton(onOpen = onRecordings, onDown = onGearDown)
             Spacer(Modifier.width(6.dp))
             GuideGearButton(Modifier.focusRequester(gearFocus), onOpen = onGear, onDown = onGearDown)
@@ -2650,8 +2649,7 @@ private fun GuideHeader(
         }
         // Recordings (●) and the ⚙ for the guide's display settings, in the corner of the panel.
         Row {
-            GuideMultiviewButton(onOpen = onMultiview, onDown = onGearDown)
-            Spacer(Modifier.width(6.dp))
+            // Live TV only build: no Multiview button.
             GuideRecordingsButton(onOpen = onRecordings, onDown = onGearDown)
             Spacer(Modifier.width(6.dp))
             GuideGearButton(Modifier.focusRequester(gearFocus), onOpen = onGear, onDown = onGearDown)
