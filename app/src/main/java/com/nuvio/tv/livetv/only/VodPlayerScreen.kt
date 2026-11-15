@@ -7,6 +7,18 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ClosedCaption
+import androidx.compose.material.icons.filled.Forward10
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Replay10
+import com.nuvio.tv.livetv.ui.glass
+import com.nuvio.tv.livetv.ui.glassColor
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -66,8 +78,9 @@ import kotlinx.coroutines.delay
 
 /**
  * Live TV only build: plays a movie or an episode from Movies & Series.
- * Remote: OK = play / pause, Left / Right = back / forward 10 s (hold to go faster),
- * Up (or Menu) = subtitles & audio, Down = show the bar, Back = close.
+ * Remote: like Live TV's player. Bar hidden: OK shows it, ◀ ▶ seek 10 s (hold: 1 min), ▲ shows it.
+ * Bar up: ◀ ▶ pick ⟲10 · ⏯ · 10⟳ · subtitles, OK presses, ▲ subtitles & audio, ▼ / Back hide it.
+ * Back with the bar hidden closes the player.
  *
  * The picture is Live TV's own player view (the app's player layout has no built-in controls,
  * so PlayerView's controller can't be used), with a small bar drawn on top.
@@ -161,7 +174,7 @@ fun VodPlayerScreen(onClose: () -> Unit) {
         }
     }
 
-    // Time and bar visibility.
+    // Time.
     LaunchedEffect(player) {
         while (true) {
             position = player.currentPosition.coerceAtLeast(0L)
@@ -170,12 +183,41 @@ fun VodPlayerScreen(onClose: () -> Unit) {
             delay(500)
         }
     }
-    val barVisible = !playing || error != null || barTick < 0 || System.currentTimeMillis() - barShownAt < 4_000
+
+    // The bar works like Live TV's: hidden while watching; OK brings it up with its buttons
+    // (◀ ▶ move between them, OK presses one); ◀ ▶ with the bar hidden seek right away.
+    var barFull by remember { mutableStateOf(true) }
+    var button by remember { mutableIntStateOf(VodButton.PLAY.ordinal) }
+    val now = System.currentTimeMillis() + (barTick * 0L)
+    val idle = now - barShownAt
+    LaunchedEffect(barTick) {
+        // Full bar hides after 6 s without a key (not while paused or showing an error).
+        if (barFull && playing && error == null && idle > 6_000) barFull = false
+    }
+    val peek = !barFull && idle < 2_500
+    val barVisible = barFull || peek || !playing || error != null
 
     LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
-    BackHandler { onClose() }
+    BackHandler(enabled = !tracksOpen) {
+        if (barFull) barFull = false else onClose()
+    }
 
-    fun showBar() { barShownAt = System.currentTimeMillis() }
+    fun touch() { barShownAt = System.currentTimeMillis() }
+    fun seekBy(ms: Long) {
+        val end = player.duration.takeIf { it > 0 } ?: Long.MAX_VALUE
+        player.seekTo((player.currentPosition + ms).coerceIn(0L, end))
+        position = player.currentPosition
+        touch()
+    }
+    fun press(b: VodButton) {
+        touch()
+        when (b) {
+            VodButton.BACK -> seekBy(-10_000)
+            VodButton.PLAY -> player.playWhenReady = !player.playWhenReady
+            VodButton.FORWARD -> seekBy(10_000)
+            VodButton.TRACKS -> tracksOpen = true
+        }
+    }
 
     Box(
         Modifier
@@ -186,26 +228,37 @@ fun VodPlayerScreen(onClose: () -> Unit) {
                 // The subtitles & audio panel handles its own keys.
                 if (tracksOpen) return@onPreviewKeyEvent false
                 if (e.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                val held = e.nativeKeyEvent.repeatCount
                 when (e.key) {
-                    Key.DirectionCenter, Key.Enter, Key.NumPadEnter, Key.MediaPlayPause, Key.Spacebar -> {
-                        player.playWhenReady = !player.playWhenReady; showBar(); true
+                    Key.MediaPlayPause, Key.Spacebar -> { press(VodButton.PLAY); true }
+                    Key.MediaPlay -> { player.playWhenReady = true; touch(); true }
+                    Key.MediaPause -> { player.playWhenReady = false; touch(); true }
+                    Key.MediaFastForward -> { seekBy(if (held > 10) 60_000 else 10_000); true }
+                    Key.MediaRewind -> { seekBy(if (held > 10) -60_000 else -10_000); true }
+                    Key.Menu, Key.Captions -> { tracksOpen = true; true }
+                    Key.DirectionCenter, Key.Enter, Key.NumPadEnter -> {
+                        if (barFull) press(VodButton.entries[button])
+                        else { barFull = true; button = VodButton.PLAY.ordinal; touch() }
+                        true
                     }
-                    Key.MediaPlay -> { player.playWhenReady = true; showBar(); true }
-                    Key.MediaPause -> { player.playWhenReady = false; showBar(); true }
-                    Key.DirectionRight, Key.MediaFastForward -> {
-                        // Held down: bigger jumps the longer it's held.
-                        val step = if (e.nativeKeyEvent.repeatCount > 10) 60_000L else 10_000L
-                        val end = player.duration.takeIf { it > 0 } ?: Long.MAX_VALUE
-                        player.seekTo((player.currentPosition + step).coerceAtMost(end))
-                        showBar(); true
+                    Key.DirectionLeft -> {
+                        if (barFull) { button = (button - 1).coerceAtLeast(0); touch() }
+                        else seekBy(if (held > 10) -60_000 else -10_000)
+                        true
                     }
-                    Key.DirectionLeft, Key.MediaRewind -> {
-                        val step = if (e.nativeKeyEvent.repeatCount > 10) 60_000L else 10_000L
-                        player.seekTo((player.currentPosition - step).coerceAtLeast(0L))
-                        showBar(); true
+                    Key.DirectionRight -> {
+                        if (barFull) { button = (button + 1).coerceAtMost(VodButton.entries.lastIndex); touch() }
+                        else seekBy(if (held > 10) 60_000 else 10_000)
+                        true
                     }
-                    Key.DirectionUp, Key.Menu, Key.Captions -> { tracksOpen = true; true }
-                    Key.DirectionDown -> { showBar(); true }
+                    Key.DirectionUp -> {
+                        if (!barFull) { barFull = true; button = VodButton.PLAY.ordinal } else tracksOpen = true
+                        touch(); true
+                    }
+                    Key.DirectionDown -> {
+                        if (barFull) barFull = false else { barFull = true; button = VodButton.PLAY.ordinal }
+                        touch(); true
+                    }
                     else -> false
                 }
             }
@@ -223,16 +276,21 @@ fun VodPlayerScreen(onClose: () -> Unit) {
         )
 
         if (buffering && error == null) {
-            Text("Loading…", color = Color.White, fontSize = 16.sp, modifier = Modifier.align(Alignment.Center))
+            androidx.compose.material3.CircularProgressIndicator(
+                color = Color.White,
+                strokeWidth = 3.dp,
+                modifier = Modifier.align(Alignment.Center).size(44.dp)
+            )
         }
         error?.let {
-            Text(
+            com.nuvio.tv.livetv.ui.LiveText(
                 it,
+                size = 16.sp,
                 color = Color.White,
-                fontSize = 16.sp,
+                maxLines = 3,
                 modifier = Modifier.align(Alignment.Center)
-                    .background(Color(0xCC000000), RoundedCornerShape(10.dp))
-                    .padding(horizontal = 18.dp, vertical = 12.dp)
+                    .glass(glassColor("darker"))
+                    .padding(horizontal = 22.dp, vertical = 14.dp)
             )
         }
 
@@ -242,34 +300,14 @@ fun VodPlayerScreen(onClose: () -> Unit) {
             exit = fadeOut(),
             modifier = Modifier.align(Alignment.BottomCenter)
         ) {
-            Column(
-                Modifier
-                    .fillMaxWidth()
-                    .background(Brush.verticalGradient(listOf(Color.Transparent, Color(0xE6000000))))
-                    .padding(horizontal = 48.dp, vertical = 28.dp)
-            ) {
-                Text(playable.title, color = Color.White, fontSize = 20.sp, maxLines = 1)
-                Spacer(Modifier.height(14.dp))
-                val fraction = if (duration > 0) (position.toFloat() / duration).coerceIn(0f, 1f) else 0f
-                Box(
-                    Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp))
-                        .background(Color.White.copy(alpha = 0.25f))
-                ) {
-                    Box(Modifier.fillMaxWidth(fraction).height(6.dp).background(Color.White))
-                }
-                Spacer(Modifier.height(10.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(if (playing) "❚❚" else "▶", color = Color.White, fontSize = 18.sp)
-                    Spacer(Modifier.width(14.dp))
-                    Text(
-                        "${clock(position)} / ${if (duration > 0) clock(duration) else "--:--"}",
-                        color = Color.White.copy(alpha = 0.85f),
-                        fontSize = 15.sp
-                    )
-                    Spacer(Modifier.weight(1f))
-                    Text("◀ ▶  10 s     OK  ▶/❚❚     ▲  Subtitles / Audio", color = Color.White.copy(alpha = 0.55f), fontSize = 13.sp)
-                }
-            }
+            VodBar(
+                playable = playable,
+                full = barFull || !playing,
+                playing = playing,
+                focusedButton = if (barFull) button else -1,
+                positionMs = position,
+                durationMs = duration
+            )
         }
 
         if (tracksOpen) {
@@ -278,10 +316,130 @@ fun VodPlayerScreen(onClose: () -> Unit) {
                 version = tracksVersion,
                 onClose = {
                     tracksOpen = false
+                    touch()
                     runCatching { focus.requestFocus() }
                 }
             )
         }
+    }
+}
+
+private enum class VodButton { BACK, PLAY, FORWARD, TRACKS }
+
+/**
+ * The player's bar, in Live TV's style: a floating glass card at the bottom with the poster,
+ * the title and what it is, then ⟲10 · ⏯ · 10⟳ · subtitles and the progress bar.
+ * [full] = false: just the title and the progress (after a seek with the bar hidden).
+ */
+@Composable
+private fun VodBar(
+    playable: VodPlayable,
+    full: Boolean,
+    playing: Boolean,
+    focusedButton: Int,
+    positionMs: Long,
+    durationMs: Long
+) {
+    val colors = com.nuvio.tv.ui.theme.NuvioTheme.colors
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 40.dp, vertical = 28.dp)
+            .glass(glassColor("standard"))
+            .padding(horizontal = 22.dp, vertical = 18.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (!playable.poster.isNullOrBlank()) {
+                coil3.compose.AsyncImage(
+                    model = playable.poster,
+                    contentDescription = null,
+                    contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                    modifier = Modifier
+                        .height(if (full) 118.dp else 70.dp)
+                        .aspectRatio(2f / 3f)
+                        .clip(RoundedCornerShape(10.dp))
+                )
+                Spacer(Modifier.width(18.dp))
+            }
+            Column(Modifier.weight(1f)) {
+                com.nuvio.tv.livetv.ui.LiveText(
+                    playable.title, size = 20.sp, weight = androidx.compose.ui.text.font.FontWeight.SemiBold, color = colors.TextPrimary
+                )
+                if (playable.subtitle.isNotBlank()) {
+                    Spacer(Modifier.height(2.dp))
+                    com.nuvio.tv.livetv.ui.LiveText(playable.subtitle, size = 14.sp, color = colors.TextSecondary)
+                }
+                Spacer(Modifier.height(12.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (full) {
+                        VodRoundButton(Icons.Default.Replay10, focusedButton == VodButton.BACK.ordinal, big = false)
+                        Spacer(Modifier.width(10.dp))
+                        VodRoundButton(
+                            if (playing) Icons.Default.Pause else Icons.Default.PlayArrow,
+                            focusedButton == VodButton.PLAY.ordinal, big = true
+                        )
+                        Spacer(Modifier.width(10.dp))
+                        VodRoundButton(Icons.Default.Forward10, focusedButton == VodButton.FORWARD.ordinal, big = false)
+                        Spacer(Modifier.width(10.dp))
+                        VodRoundButton(Icons.Default.ClosedCaption, focusedButton == VodButton.TRACKS.ordinal, big = false)
+                        Spacer(Modifier.width(16.dp))
+                    }
+                    VodTimeline(positionMs, durationMs, Modifier.weight(1f))
+                }
+                if (full) {
+                    Spacer(Modifier.height(8.dp))
+                    com.nuvio.tv.livetv.ui.LiveText(
+                        when (focusedButton) {
+                            VodButton.TRACKS.ordinal -> "Subtitles & audio"
+                            VodButton.BACK.ordinal -> "Back 10 s"
+                            VodButton.FORWARD.ordinal -> "Forward 10 s"
+                            else -> if (playing) "Pause" else "Play"
+                        } + "   ·   ◀ ▶ hidden bar: seek   ·   ▲ subtitles",
+                        size = 11.sp,
+                        color = colors.TextSecondary
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun VodRoundButton(icon: androidx.compose.ui.graphics.vector.ImageVector, focused: Boolean, big: Boolean) {
+    val size = if (big) 40.dp else 34.dp
+    Box(
+        Modifier
+            .size(size)
+            .clip(CircleShape)
+            .background(if (focused) Color.White else Color.White.copy(alpha = if (big) 0.18f else 0.10f))
+            .border(if (focused) 3.dp else 0.dp, if (focused) Color.White.copy(alpha = 0.25f) else Color.Transparent, CircleShape),
+        contentAlignment = Alignment.Center
+    ) {
+        androidx.compose.material3.Icon(
+            icon,
+            contentDescription = null,
+            tint = if (focused) Color(0xFF111111) else Color.White,
+            modifier = Modifier.size(if (big) 22.dp else 18.dp)
+        )
+    }
+}
+
+@Composable
+private fun VodTimeline(positionMs: Long, durationMs: Long, modifier: Modifier) {
+    val colors = com.nuvio.tv.ui.theme.NuvioTheme.colors
+    val frac = if (durationMs > 0) (positionMs.toFloat() / durationMs).coerceIn(0f, 1f) else 0f
+    Row(modifier, verticalAlignment = Alignment.CenterVertically) {
+        com.nuvio.tv.livetv.ui.LiveText(clock(positionMs), size = 12.sp, color = colors.TextSecondary)
+        Spacer(Modifier.width(10.dp))
+        Box(Modifier.weight(1f).height(5.dp).clip(RoundedCornerShape(3.dp)).background(Color.White.copy(alpha = 0.18f))) {
+            Box(Modifier.fillMaxWidth(frac).height(5.dp).clip(RoundedCornerShape(3.dp)).background(Color.White))
+        }
+        Spacer(Modifier.width(10.dp))
+        com.nuvio.tv.livetv.ui.LiveText(
+            if (durationMs > 0) "-" + clock((durationMs - positionMs).coerceAtLeast(0L)) else "--:--",
+            size = 12.sp,
+            color = colors.TextSecondary
+        )
     }
 }
 

@@ -23,7 +23,14 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /** What the player opens: a link, the headers it needs, and a title for the top of the screen. */
-data class VodPlayable(val url: String, val headers: Map<String, String>, val title: String)
+data class VodPlayable(
+    val url: String,
+    val headers: Map<String, String>,
+    val title: String,
+    /** Under the title: the year, or "S1 · E3 · Episode name". */
+    val subtitle: String = "",
+    val poster: String? = null
+)
 
 /** Hands the chosen title to the player screen (no need to squeeze links into the route). */
 object VodLaunch {
@@ -215,24 +222,25 @@ class VodViewModel @Inject constructor(
 
     private suspend fun resolveMovie(item: VodItem): VodPlayable? {
         val title = OnDemandDatabase.displayTitle(item.name)
+        val sub = item.year?.toString().orEmpty()
         item.stalkerRef?.let { ref ->
             val s = stalker.resolve(item.playlistId, ref)
-            return VodPlayable(s.url, headersFor(item.playlistId) + s.headers, title)
+            return VodPlayable(s.url, headersFor(item.playlistId) + s.headers, title, sub, item.icon)
         }
         val url = repo.movieUrl(item) ?: return null
-        return VodPlayable(url, headersFor(item.playlistId), title)
+        return VodPlayable(url, headersFor(item.playlistId), title, sub, item.icon)
     }
 
     private suspend fun resolveEpisode(series: VodItem, ep: VodEpisode): VodPlayable? {
-        val title = "${OnDemandDatabase.displayTitle(series.name)} · S${ep.season}E${ep.episode}" +
-            ep.title.takeIf { it.isNotBlank() }?.let { " · $it" }.orEmpty()
+        val title = OnDemandDatabase.displayTitle(series.name)
+        val sub = "S${ep.season} · E${ep.episode}" + ep.title.takeIf { it.isNotBlank() }?.let { " · $it" }.orEmpty()
         val playlistId = ep.playlistId.ifBlank { series.playlistId }
         ep.stalkerRef?.let { ref ->
             val s = stalker.resolve(playlistId, ref)
-            return VodPlayable(s.url, headersFor(playlistId) + s.headers, title)
+            return VodPlayable(s.url, headersFor(playlistId) + s.headers, title, sub, series.icon)
         }
         val url = ep.url.takeIf { it.isNotBlank() } ?: return null
-        return VodPlayable(url, headersFor(playlistId), title)
+        return VodPlayable(url, headersFor(playlistId), title, sub, series.icon)
     }
 
     private companion object {

@@ -400,6 +400,7 @@ private fun SearchBox(value: String, hint: String, onChange: (String) -> Unit) {
     var editing by remember { mutableStateOf(false) }
     // After typing, the highlight goes back to the search button.
     var returnFocus by remember { mutableStateOf(false) }
+    var hadFieldFocus by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(10.dp)
     val keyboard = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
     val fieldFocus = remember { FocusRequester() }
@@ -416,7 +417,11 @@ private fun SearchBox(value: String, hint: String, onChange: (String) -> Unit) {
     if (editing) {
         BackHandler { stopEditing() }
         LaunchedEffect(Unit) {
+            hadFieldFocus = false
+            // Wait a frame so the field is on screen before it takes the highlight.
+            kotlinx.coroutines.delay(50)
             runCatching { fieldFocus.requestFocus() }
+            kotlinx.coroutines.delay(50)
             keyboard?.show()
         }
         androidx.compose.foundation.text.BasicTextField(
@@ -432,7 +437,12 @@ private fun SearchBox(value: String, hint: String, onChange: (String) -> Unit) {
             ),
             modifier = boxModifier
                 .focusRequester(fieldFocus)
-                .onFocusChanged { if (!it.isFocused && editing) editing = false }
+                .onFocusChanged {
+                    // The field reports "not focused" when it first appears: only leaving it
+                    // after it had the highlight ends the typing.
+                    if (it.isFocused) hadFieldFocus = true
+                    else if (hadFieldFocus && editing) { hadFieldFocus = false; editing = false }
+                }
                 .padding(horizontal = 14.dp, vertical = 12.dp),
             decorationBox = { inner ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
