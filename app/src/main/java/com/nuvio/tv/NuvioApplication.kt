@@ -75,9 +75,9 @@ class NuvioApplication : Application(), SingletonImageLoader.Factory {
                 activityManager.getMemoryInfo(memoryInfo)
                 val totalRamMb = memoryInfo.totalMem / (1024 * 1024)
                 val cachePercent = when {
-                    totalRamMb <= 2048 -> 0.15
-                    totalRamMb <= 3072 -> 0.20
-                    else -> 0.25
+                    totalRamMb <= 2048 -> 0.10
+                    totalRamMb <= 3072 -> 0.12
+                    else -> 0.15
                 }
                 val budgetHeapBytes = MemoryBudget.heapMb * 1024L * 1024L
                 val builder = MemoryCache.Builder()
@@ -91,7 +91,7 @@ class NuvioApplication : Application(), SingletonImageLoader.Factory {
             .diskCache {
                 DiskCache.Builder()
                     .directory(cacheDir.resolve("image_cache").toOkioPath())
-                    .maxSizeBytes(200L * 1024 * 1024)
+                    .maxSizeBytes(50L * 1024 * 1024)
                     .build()
             }
             .crossfade(false)

@@ -388,7 +388,6 @@ configurations.all {
 }
 
 dependencies {
-    implementation(project(":vpn-android"))
     implementation(project(":vpn-core"))
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
     val composeBom = platform("androidx.compose:compose-bom:2026.05.01")
@@ -478,10 +477,7 @@ dependencies {
     ))
     implementation(libs.media3.ui)
 
-    // Local decoder AARs (AV1, IAMF, MPEG-H)
-    implementation(files(
-        "libs/lib-decoder-av1-release.aar"
-    ))
+    // Live TV only build: no AV1 / IAMF / MPEG-H decoders (IPTV doesn't use them). ffmpeg stays for AC3 / DTS audio.
     if (useLocalFfmpegDecoder) {
         implementation(project(":ffmpeg-decoder-downmix"))
     } else {
