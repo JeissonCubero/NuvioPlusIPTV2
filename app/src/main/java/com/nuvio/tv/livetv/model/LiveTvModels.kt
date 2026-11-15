@@ -375,7 +375,8 @@ data class LiveTvSettings(
     val onDemandSearchOnDemand: Boolean = true,
     val showAllChannelsGroup: Boolean = true,
     /** Playlist groups whose name starts with any of these are hidden (comma separated, any case). */
-    val hiddenGroupPrefixes: String = "",
+    // Live TV only build: Arabic/Asian/European/African groups hidden to start with (Settings changes it).
+    val hiddenGroupPrefixes: String = "AR, EU, AF, AS",
     /** When Live TV opens, start the last channel in the preview window and highlight it. */
     val resumeLastInPreview: Boolean = true,
     /** Show how many channels each group has in the guide's group list. */
@@ -574,7 +575,8 @@ data class LiveTvSettings(
     /** Which list the Channel Row opens on: "last" (the one used last) or "first". */
     val panelRowOpens: String = "last",
     /** Channel surfing: Up / Down show other channels on the info bar; OK switches. */
-    val channelSurf: Boolean = false,
+    // Live TV only build: on by default (▲ ▼ show what's on a channel before switching to it).
+    val channelSurf: Boolean = true,
     /** Parts of the full-screen bar switched off (⚙ → Play bar layout), comma separated. */
     val barHidden: String = "",
     /** Parts of the guide's info panel that are switched off (see GuideInfoPart), comma separated. */

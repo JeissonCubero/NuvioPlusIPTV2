@@ -159,6 +159,21 @@ open class MainActivity : ComponentActivity() {
                 }
             }
         }
+        // Once, after updating to this version: channel surfing on, and the AR / EU / AF / AS groups
+        // hidden unless some groups were already set to hide.
+        if (!onceFlags.getBoolean("surf_and_groups_v1", false)) {
+            lifecycleScope.launch {
+                runCatching {
+                    liveTvPreferences.updateSettings {
+                        it.copy(
+                            channelSurf = true,
+                            hiddenGroupPrefixes = it.hiddenGroupPrefixes.ifBlank { "AR, EU, AF, AS" }
+                        )
+                    }
+                    onceFlags.edit().putBoolean("surf_and_groups_v1", true).apply()
+                }
+            }
+        }
         // Scheduled recordings (sets their alarms; series look for new airings).
         runCatching { liveTvRecordingScheduler.start() }
         runCatching { onDemandRepository.start() }
