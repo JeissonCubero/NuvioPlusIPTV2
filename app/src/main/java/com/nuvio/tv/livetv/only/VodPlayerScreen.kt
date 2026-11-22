@@ -116,13 +116,17 @@ fun VodPlayerScreen(onClose: () -> Unit) {
         val renderers = DefaultRenderersFactory(context)
             // ffmpeg for AC3 / E-AC3 / DTS audio the TV can't play itself (same as Live TV).
             .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
-            .setEnableDecoderFallback(true)
+            // No falling back to a software video decoder: on a TV that can't play a 4K / HEVC
+            // file in hardware, that froze the picture and the whole app. It now says so instead.
+            .setEnableDecoderFallback(false)
         // Download-ahead kept to what a cheap TV stick can hold (like Live TV's player).
         val heapMb = MemoryBudget.heapMb.takeIf { it > 0 } ?: 512L
         val bufferBytes = ((heapMb shl 20) * 3 / 10).coerceIn(32L shl 20, 160L shl 20).toInt()
         val loadControl = DefaultLoadControl.Builder()
             .setBufferDurationsMs(25_000, 60_000, 2_000, 4_000)
-            .setPrioritizeTimeOverSizeThresholds(true)
+            // The memory cap wins over "seconds ahead": a 4K file (40-80 Mbit/s) used to fill the
+            // memory trying to hold 25 s ahead, and the app was closed by Android.
+            .setPrioritizeTimeOverSizeThresholds(false)
             .setTargetBufferBytes(bufferBytes)
             .build()
         ExoPlayer.Builder(context, renderers)
@@ -134,6 +138,12 @@ fun VodPlayerScreen(onClose: () -> Unit) {
             )
             .build()
             .apply {
+                // Only video this TV says it can decode; the picture is never asked to go over the
+                // screen's size when the title offers smaller versions.
+                trackSelectionParameters = trackSelectionParameters.buildUpon()
+                    .setExceedRendererCapabilitiesIfNecessary(false)
+                    .setViewportSizeToPhysicalDisplaySize(context, true)
+                    .build()
                 setMediaItem(MediaItem.fromUri(playable.url))
                 playWhenReady = true
                 prepare()
@@ -152,7 +162,15 @@ fun VodPlayerScreen(onClose: () -> Unit) {
     DisposableEffect(player) {
         val listener = object : Player.Listener {
             override fun onPlayerError(e: PlaybackException) {
-                error = "Couldn't play this title (${e.errorCodeName})."
+                val decoder = e.errorCode in listOf(
+                    PlaybackException.ERROR_CODE_DECODER_INIT_FAILED,
+                    PlaybackException.ERROR_CODE_DECODER_QUERY_FAILED,
+                    PlaybackException.ERROR_CODE_DECODING_FAILED,
+                    PlaybackException.ERROR_CODE_DECODING_FORMAT_EXCEEDS_CAPABILITIES,
+                    PlaybackException.ERROR_CODE_DECODING_FORMAT_UNSUPPORTED
+                )
+                error = if (decoder) context.getString(R.string.livetv_only_vod_cant_decode)
+                else context.getString(R.string.livetv_only_vod_play_failed, e.errorCodeName)
                 barShownAt = System.currentTimeMillis()
             }
             override fun onPlaybackStateChanged(state: Int) {
@@ -164,7 +182,21 @@ fun VodPlayerScreen(onClose: () -> Unit) {
                 if (state == Player.STATE_ENDED) onClose()
             }
             override fun onIsPlayingChanged(isPlaying: Boolean) { playing = isPlaying }
-            override fun onTracksChanged(tracks: androidx.media3.common.Tracks) { tracksVersion++ }
+            override fun onTracksChanged(tracks: androidx.media3.common.Tracks) {
+                tracksVersion++
+                // A title whose video this TV can't decode (typically 4K / HEVC on a 1080p box):
+                // stop rather than play sound over a frozen or black picture.
+                val video = tracks.groups.filter { it.type == C.TRACK_TYPE_VIDEO }
+                if (video.isNotEmpty() && video.none { g -> (0 until g.length).any { g.isTrackSupported(it) } }) {
+                    val f = video.first().getTrackFormat(0)
+                    val what = listOfNotNull(
+                        if (f.height >= 2000 || f.width >= 3800) "4K" else if (f.height > 0) "${f.height}p" else null,
+                        f.sampleMimeType?.substringAfter('/')?.uppercase()
+                    ).joinToString(" · ")
+                    error = context.getString(R.string.livetv_only_vod_cant_decode_what, what.ifBlank { "?" })
+                    player.stop()
+                }
+            }
         }
         player.addListener(listener)
         onDispose {

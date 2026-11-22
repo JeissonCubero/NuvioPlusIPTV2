@@ -39,4 +39,7 @@
     <string name="livetv_only_update_ready">Update downloaded</string>
     <string name="livetv_only_update_ready_text">Press Install and confirm on the next screen.</string>
     <string name="livetv_only_update_install">Install</string>
+    <string name="livetv_only_vod_cant_decode">This TV can\'t decode this video (it\'s probably 4K / HEVC). Try another version of the title in a lower quality.</string>
+    <string name="livetv_only_vod_cant_decode_what">This TV can\'t play this video (%1$s). Try another version of the title in a lower quality.</string>
+    <string name="livetv_only_vod_play_failed">Couldn\'t play this title (%1$s).</string>
 </resources>
