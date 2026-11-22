@@ -1133,6 +1133,8 @@ private fun LiveTvGuideScreenBody(
                 },
                 onRecordings = onOpenRecordings,
                 onMultiview = onOpenMultiview,
+                // OK on the preview window: what's playing, full screen.
+                onOpenPlaying = { if (playback.channelKey != null) goFullscreen() },
                 playlistName = if (settings.showPlaylistInInfo) headerChannel?.sourceId?.let { playlistNames[it] } else null,
                 settings = settings,
                 now = now,
@@ -2486,7 +2488,9 @@ private fun GuideHeader(
     onGearDown: () -> Unit = {},
     /** Opens Recordings (the ● beside the ⚙). */
     onRecordings: () -> Unit = {},
-    onMultiview: () -> Unit = {}
+    onMultiview: () -> Unit = {},
+    /** The preview window was picked (OK on it): back to what's playing, full screen. */
+    onOpenPlaying: () -> Unit = {}
 ) {
     if (!settings.showProgramDetails && !showPreview) {
         Row(
@@ -2656,16 +2660,34 @@ private fun GuideHeader(
         }
         // Preview only (info panel off): keep it at the right, as usual.
         if (showPreview) {
+            // Live TV only build: the preview window can be picked (▲ to the top bar, ▶ to it,
+            // OK): it goes back to the channel that's playing, full screen, wherever you were.
+            var previewFocused by remember { mutableStateOf(false) }
+            val previewShape = RoundedCornerShape(liveCorner())
             Box(
                 modifier = Modifier
                     .fillMaxHeight()
                     .aspectRatio(16f / 9f)
-                    .clip(RoundedCornerShape(liveCorner()))
-                    .background(Color.Black)
+                    .onFocusChanged { previewFocused = it.isFocused }
+                    .onPreviewKeyEvent { e ->
+                        if (e.key == Key.DirectionDown) {
+                            if (e.type == KeyEventType.KeyDown) onGearDown()
+                            true
+                        } else false
+                    }
+                    .combinedClickable(
+                        enabled = playingKey != null,
+                        interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                        indication = null,
+                        onClick = onOpenPlaying
+                    )
+                    .clip(previewShape)
+                    .background(if (previewFocused) Color.White else Color.Black)
             ) {
                 // The video itself is drawn by the guide, over this spot (one view for the
                 // preview and full screen); this just reports where the preview window is.
-                Box(Modifier.fillMaxSize().onGloballyPositioned { onPreviewBounds(it.boundsInRoot()) })
+                // Inset a little so the highlight shows as a white frame around the picture.
+                Box(Modifier.fillMaxSize().padding(3.dp).onGloballyPositioned { onPreviewBounds(it.boundsInRoot()) })
                 androidx.compose.runtime.DisposableEffect(Unit) { onDispose { onPreviewBounds(null) } }
                 val overlay = when {
                     playingKey == null -> "Press OK on a channel to preview"
