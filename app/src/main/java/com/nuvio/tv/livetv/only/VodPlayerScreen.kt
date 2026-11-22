@@ -129,7 +129,17 @@ fun VodPlayerScreen(onClose: () -> Unit) {
             .setPrioritizeTimeOverSizeThresholds(false)
             .setTargetBufferBytes(bufferBytes)
             .build()
+        // Only video this TV says it can decode; never bigger than the screen when the title
+        // offers smaller versions.
+        val trackSelector = androidx.media3.exoplayer.trackselection.DefaultTrackSelector(context).apply {
+            setParameters(
+                buildUponParameters()
+                    .setExceedRendererCapabilitiesIfNecessary(false)
+                    .setViewportSizeToPhysicalDisplaySize(context, true)
+            )
+        }
         ExoPlayer.Builder(context, renderers)
+            .setTrackSelector(trackSelector)
             .setMediaSourceFactory(DefaultMediaSourceFactory(http))
             .setLoadControl(loadControl)
             .setAudioAttributes(
@@ -138,12 +148,6 @@ fun VodPlayerScreen(onClose: () -> Unit) {
             )
             .build()
             .apply {
-                // Only video this TV says it can decode; the picture is never asked to go over the
-                // screen's size when the title offers smaller versions.
-                trackSelectionParameters = trackSelectionParameters.buildUpon()
-                    .setExceedRendererCapabilitiesIfNecessary(false)
-                    .setViewportSizeToPhysicalDisplaySize(context, true)
-                    .build()
                 setMediaItem(MediaItem.fromUri(playable.url))
                 playWhenReady = true
                 prepare()
