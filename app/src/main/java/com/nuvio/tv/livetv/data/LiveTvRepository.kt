@@ -2847,7 +2847,9 @@ class LiveTvRepository @Inject constructor(
                 reportAs?.let { LIVE_REPORT.add("Guide \"$it\": server said not changed since last time; kept the copy we have") }
                 return@withContext false
             }
-            if (checkPlaylist && (response.code == 403 || response.code == 406)) {
+            // Refusals some providers give a browser-like user agent (403, 406, 512, 884…): asked
+            // again as a media player. Not for "not found" or connection-limit answers.
+            if (checkPlaylist && !response.isSuccessful && response.code !in setOf(404, 429, 456, 458, 461)) {
                 throw NotAPlaylistException("an error (${httpError(response.code)})")
             }
             if (!response.isSuccessful) error(httpError(response.code))
@@ -3497,10 +3499,23 @@ class LiveTvRepository @Inject constructor(
     }.getOrNull()
 
     private fun getText(url: String, userAgent: String): String {
-        val request = Request.Builder().url(url).header("User-Agent", userAgent.ifBlank { DEFAULT_UA }).build()
+        val ua = userAgent.ifBlank { DEFAULT_UA }
+        val first = getTextOnce(url, ua)
+        first.second?.let { return it }
+        // Refused with the app's default user agent: ask once more as a media player (VLC).
+        if (ua == DEFAULT_UA && first.first !in setOf(404, 429, 456, 458, 461)) {
+            val second = getTextOnce(url, PLAYER_UA)
+            second.second?.let { return it }
+        }
+        error(httpError(first.first))
+    }
+
+    /** (HTTP code, body); the body is null when the answer wasn't OK. */
+    private fun getTextOnce(url: String, ua: String): Pair<Int, String?> {
+        val request = Request.Builder().url(url).header("User-Agent", ua).build()
         http.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) error(httpError(response.code))
-            return response.body?.string() ?: error("Empty response")
+            if (!response.isSuccessful) return response.code to null
+            return response.code to (response.body?.string() ?: error("Empty response"))
         }
     }
 
@@ -3513,6 +3528,7 @@ class LiveTvRepository @Inject constructor(
         // limit, expired, or blocked for the moment.
         456, 458, 461 -> "HTTP $code: the provider refused this login for now (too many connections, expired, or blocked). Close other apps using it and try again later."
         502, 503, 504, 520, 521, 522, 523, 524 -> "HTTP $code: the provider's server didn't respond, try again later"
+        512 -> "HTTP 512: the provider refused this app or this login (check user and password, or set the user agent the provider gives you)"
         884 -> "HTTP 884: the provider blocked this app (try setting a user agent)"
         else -> "HTTP $code"
     }
