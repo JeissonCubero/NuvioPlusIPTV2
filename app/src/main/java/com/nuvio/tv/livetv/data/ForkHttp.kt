@@ -23,9 +23,41 @@ internal object ForkHttp {
     val base: OkHttpClient by lazy {
         OkHttpClient.Builder()
             .connectionPool(ConnectionPool(IDLE_CONNECTIONS, KEEP_ALIVE_MINUTES, TimeUnit.MINUTES))
+            .addInterceptor(HttpsToHttpFallback)
             .build()
     }
 
     /** A client for one feature: the shared pool and threads, with that feature's own settings. */
     fun builder(): OkHttpClient.Builder = base.newBuilder()
+}
+
+/**
+ * Many IPTV servers only speak plain http on their port, and a link typed with "https://"
+ * then fails with "Unable to parse TLS packet header". When https fails that way, try the
+ * same address with http.
+ */
+internal object HttpsToHttpFallback : okhttp3.Interceptor {
+    override fun intercept(chain: okhttp3.Interceptor.Chain): okhttp3.Response {
+        val req = chain.request()
+        return try {
+            chain.proceed(req)
+        } catch (e: javax.net.ssl.SSLException) {
+            if (!req.url.isHttps || !looksLikePlainHttp(e)) throw e
+            // A custom port (":8080") is kept; the https default 443 becomes http's 80.
+            val b = req.url.newBuilder().scheme("http")
+            b.port(if (req.url.port == 443) 80 else req.url.port)
+            chain.proceed(req.newBuilder().url(b.build()).build())
+        }
+    }
+
+    private fun looksLikePlainHttp(e: Throwable): Boolean {
+        var t: Throwable? = e
+        while (t != null) {
+            val m = t.message.orEmpty().lowercase()
+            if ("tls packet header" in m || "not an ssl/tls record" in m || "wrong version number" in m ||
+                "unrecognized ssl message" in m || "unexpected message" in m) return true
+            t = t.cause
+        }
+        return false
+    }
 }
