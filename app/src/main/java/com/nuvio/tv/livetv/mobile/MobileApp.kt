@@ -68,6 +68,13 @@ fun MobileApp() {
         Tab(MobileRoutes.SETTINGS, R.string.livetv_only_menu_settings, Icons.Default.Settings)
     )
     val fullScreen = route == MobileRoutes.PLAYER || route == MobileRoutes.VOD_PLAYER
+    // Live TV keeps playing only on Channels (small player), its full screen and Search.
+    val liveVm = mobileLiveTvViewModel()
+    androidx.compose.runtime.LaunchedEffect(route) {
+        if (route != null && route !in setOf(MobileRoutes.TV, MobileRoutes.PLAYER, MobileRoutes.SEARCH) &&
+            liveVm.playback.state.value.channelKey != null
+        ) liveVm.playback.stop()
+    }
     var manualUpdateCheck by androidx.compose.runtime.remember { androidx.compose.runtime.mutableIntStateOf(0) }
 
     MaterialTheme(

@@ -74,6 +74,7 @@ fun MobileSettingsScreen(onCheckUpdates: () -> Unit, vm: LiveTvSettingsViewModel
     var addEpg by remember { mutableStateOf(false) }
     var editPrefixes by remember { mutableStateOf(false) }
     var editPin by remember { mutableStateOf(false) }
+    var editing by remember { mutableStateOf<PlaylistSource?>(null) }
     var confirmRemove by remember { mutableStateOf<Pair<String, () -> Unit>?>(null) }
 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -90,6 +91,7 @@ fun MobileSettingsScreen(onCheckUpdates: () -> Unit, vm: LiveTvSettingsViewModel
         items(playlists, key = { it.id }) { pl ->
             PlaylistCard(
                 pl = pl,
+                onEdit = { if (!pl.isStalker) editing = pl },
                 onEnabled = { vm.setPlaylistEnabled(pl.id, it) },
                 onRefresh = { vm.updatePlaylistNow(pl) },
                 onRemove = { confirmRemove = pl.name to { vm.removePlaylist(pl.id) } }
@@ -152,6 +154,23 @@ fun MobileSettingsScreen(onCheckUpdates: () -> Unit, vm: LiveTvSettingsViewModel
         item { Spacer(Modifier.height(24.dp)) }
     }
 
+    editing?.let { pl ->
+        AddListDialog(
+            editing = pl,
+            onDismiss = { editing = null },
+            onM3u = { name, url, ua ->
+                val changed = pl.copy(name = name, url = url, userAgent = ua)
+                vm.savePlaylist(changed); vm.updatePlaylistNow(changed); editing = null
+            },
+            onXtream = { name, server, user, pass ->
+                val changed = pl.copy(
+                    name = name, xtreamServer = PlaylistSource.cleanXtreamServer(server),
+                    xtreamUsername = user, xtreamPassword = pass
+                )
+                vm.savePlaylist(changed); vm.updatePlaylistNow(changed); editing = null
+            }
+        )
+    }
     if (addList) AddListDialog(
         onDismiss = { addList = false },
         onM3u = { name, url, ua -> vm.addPlaylist(name, url, ua); addList = false },
@@ -201,9 +220,9 @@ private fun Section(title: String) {
 }
 
 @Composable
-private fun PlaylistCard(pl: PlaylistSource, onEnabled: (Boolean) -> Unit, onRefresh: () -> Unit, onRemove: () -> Unit) {
+private fun PlaylistCard(pl: PlaylistSource, onEdit: () -> Unit, onEnabled: (Boolean) -> Unit, onRefresh: () -> Unit, onRemove: () -> Unit) {
     Row(
-        Modifier.fillMaxWidth().background(CardColor, RoundedCornerShape(12.dp)).padding(start = 14.dp, end = 4.dp, top = 10.dp, bottom = 10.dp),
+        Modifier.fillMaxWidth().background(CardColor, RoundedCornerShape(12.dp)).clickable(onClick = onEdit).padding(start = 14.dp, end = 4.dp, top = 10.dp, bottom = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(Modifier.weight(1f)) {
@@ -276,24 +295,25 @@ private fun field(label: String, value: String, onChange: (String) -> Unit, pass
 
 @Composable
 private fun AddListDialog(
+    editing: PlaylistSource? = null,
     onDismiss: () -> Unit,
     onM3u: (String, String, String) -> Unit,
     onXtream: (String, String, String, String) -> Unit
 ) {
-    var xtream by remember { mutableStateOf(false) }
-    var name by remember { mutableStateOf("") }
-    var url by remember { mutableStateOf("") }
-    var ua by remember { mutableStateOf("") }
-    var server by remember { mutableStateOf("") }
-    var user by remember { mutableStateOf("") }
-    var pass by remember { mutableStateOf("") }
+    var xtream by remember { mutableStateOf(editing?.isXtream == true) }
+    var name by remember { mutableStateOf(editing?.name.orEmpty()) }
+    var url by remember { mutableStateOf(editing?.url.orEmpty()) }
+    var ua by remember { mutableStateOf(editing?.userAgent.orEmpty()) }
+    var server by remember { mutableStateOf(editing?.xtreamServer.orEmpty()) }
+    var user by remember { mutableStateOf(editing?.xtreamUsername.orEmpty()) }
+    var pass by remember { mutableStateOf(editing?.xtreamPassword.orEmpty()) }
     val nameLabel = stringResource(R.string.livetv_only_m_name)
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.livetv_only_m_add_list)) },
+        title = { Text(stringResource(if (editing == null) R.string.livetv_only_m_add_list else R.string.livetv_only_m_edit_list)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                if (editing == null) SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
                     SegmentedButton(selected = !xtream, onClick = { xtream = false }, shape = SegmentedButtonDefaults.itemShape(0, 2)) { Text("M3U") }
                     SegmentedButton(selected = xtream, onClick = { xtream = true }, shape = SegmentedButtonDefaults.itemShape(1, 2)) { Text("Xtream") }
                 }
@@ -312,7 +332,7 @@ private fun AddListDialog(
             TextButton(onClick = {
                 if (!xtream && url.isNotBlank()) onM3u(name.ifBlank { "Playlist" }, url.trim(), ua.trim())
                 if (xtream && server.isNotBlank() && user.isNotBlank()) onXtream(name.ifBlank { "Xtream" }, server.trim(), user.trim(), pass)
-            }) { Text(stringResource(R.string.livetv_only_m_add)) }
+            }) { Text(stringResource(if (editing == null) R.string.livetv_only_m_add else R.string.action_save)) }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(android.R.string.cancel)) } }
     )

@@ -54,8 +54,7 @@ fun MobileSearchScreen(onPlay: () -> Unit) {
     val context = LocalContext.current
 
     LaunchedEffect(Unit) {
-        if (vm.playback.state.value.channelKey != null) vm.playback.stop()
-        if (text.isEmpty()) { delay(150); runCatching { focus.requestFocus() } }
+        if (text.isEmpty() && vm.playback.state.value.channelKey == null) { delay(150); runCatching { focus.requestFocus() } }
     }
 
     val q = text.trim()
@@ -79,7 +78,10 @@ fun MobileSearchScreen(onPlay: () -> Unit) {
         }
     }
 
+    val playback by vm.playback.state.collectAsStateWithLifecycle()
+    com.nuvio.tv.livetv.ui.PauseLiveTvInBackground(vm.playback)
     Column(Modifier.fillMaxSize()) {
+        if (playback.channelKey != null) MiniPlayer(vm, onFullscreen = onPlay, onClose = { vm.playback.stop() })
         OutlinedTextField(
             value = text,
             onValueChange = { text = it },
@@ -101,11 +103,10 @@ fun MobileSearchScreen(onPlay: () -> Unit) {
                     programTitle = program?.title,
                     progress = program?.let { ((now - it.startMs).toFloat() / (it.stopMs - it.startMs).coerceAtLeast(1)).coerceIn(0f, 1f) },
                     favorite = ch.key in user.favorites,
-                    playing = false,
+                    playing = playback.channelKey == ch.key,
                     onClick = {
                         keyboard?.hide()
-                        vm.preview(ch)
-                        onPlay()
+                        if (playback.channelKey == ch.key) onPlay() else vm.preview(ch)
                     },
                     onLongClick = { vm.toggleFavorite(ch) }
                 )

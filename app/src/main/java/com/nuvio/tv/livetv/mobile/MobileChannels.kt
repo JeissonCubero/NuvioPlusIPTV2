@@ -47,6 +47,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Fullscreen
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.IconButton
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -114,17 +120,20 @@ fun MobileChannelsScreen(onPlay: () -> Unit) {
     val listState = rememberLazyListState()
     LaunchedEffect(ui.selectedGroupId) { listState.scrollToItem(0) }
 
-    // Nothing plays while the list is on screen (the phone has no preview window).
-    LaunchedEffect(Unit) { if (vm.playback.state.value.channelKey != null) vm.playback.stop() }
+    com.nuvio.tv.livetv.ui.PauseLiveTvInBackground(vm.playback)
 
     Column(Modifier.fillMaxSize()) {
-        Text(
-            "Live TV",
-            color = Color.White,
-            fontSize = 22.sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(start = 16.dp, top = 14.dp, bottom = 8.dp)
-        )
+        if (playback.channelKey != null) {
+            MiniPlayer(vm, onFullscreen = onPlay, onClose = { vm.playback.stop() })
+        } else {
+            Text(
+                "Live TV",
+                color = Color.White,
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(start = 16.dp, top = 14.dp, bottom = 8.dp)
+            )
+        }
         if (!ui.hasSources) {
             EmptyNote(context.getString(R.string.livetv_only_mobile_no_lists))
             return@Column
@@ -163,9 +172,10 @@ fun MobileChannelsScreen(onPlay: () -> Unit) {
                     progress = program?.let { ((now - it.startMs).toFloat() / (it.stopMs - it.startMs).coerceAtLeast(1)).coerceIn(0f, 1f) },
                     favorite = ch.key in user.favorites,
                     playing = playback.channelKey == ch.key,
+                    // First tap plays it in the small player above; tapping the one playing
+                    // (or the small player) opens it full screen.
                     onClick = {
-                        vm.preview(ch, watchedIn = ui.selectedGroupId)
-                        onPlay()
+                        if (playback.channelKey == ch.key) onPlay() else vm.preview(ch, watchedIn = ui.selectedGroupId)
                     },
                     onLongClick = {
                         val wasFav = ch.key in user.favorites
@@ -276,4 +286,47 @@ private fun PinDialog(onDismiss: () -> Unit, onPin: (String) -> Boolean) {
         confirmButton = { TextButton(onClick = { wrong = !onPin(pin) }) { Text("OK") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text(androidx.compose.ui.res.stringResource(android.R.string.cancel)) } }
     )
+}
+
+/** The small player above the channel list: tap it (or the full-screen button) to go full screen. */
+@Composable
+internal fun MiniPlayer(vm: LiveTvViewModel, onFullscreen: () -> Unit, onClose: () -> Unit) {
+    val playback by vm.playback.state.collectAsStateWithLifecycle()
+    val now by vm.now.collectAsStateWithLifecycle()
+    val programs by vm.programs.collectAsStateWithLifecycle()
+    val channel = vm.playback.playingChannel?.takeIf { it.key == playback.channelKey }
+    val program = remember(programs, now, channel?.key) { channel?.let { vm.currentProgram(it.key, now) } }
+    Column(Modifier.fillMaxWidth().background(Color.Black)) {
+        Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).clickable(onClick = onFullscreen)) {
+            com.nuvio.tv.livetv.ui.LivePlayerSurface(
+                player = vm.playback.player,
+                modifier = Modifier.fillMaxSize(),
+                useSurfaceView = false,
+                onAttached = { vm.playback.onSurfaceAttached() },
+                pictureShape = vm.pictureShapeOf(playback.channelKey)
+            )
+            if (playback.isBuffering && playback.error == null) {
+                CircularProgressIndicator(color = Color.White, modifier = Modifier.align(Alignment.Center).size(34.dp))
+            }
+            playback.error?.let {
+                Text(
+                    it, color = Color.White, fontSize = 13.sp,
+                    modifier = Modifier.align(Alignment.Center).padding(16.dp)
+                        .background(Color(0xCC000000), RoundedCornerShape(8.dp)).padding(horizontal = 12.dp, vertical = 8.dp)
+                )
+            }
+        }
+        Row(Modifier.fillMaxWidth().background(Color(0xFF111114)).padding(start = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f).padding(vertical = 6.dp)) {
+                Text(
+                    channel?.let { "${it.number}  ${it.name}" }.orEmpty(),
+                    color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis
+                )
+                program?.let { Text(it.title, color = Color(0xFFA8A8B0), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+            }
+            IconButton(onClick = onFullscreen) { Icon(Icons.Default.Fullscreen, null, tint = Color.White) }
+            IconButton(onClick = onClose) { Icon(Icons.Default.Close, null, tint = Color.White) }
+        }
+    }
 }

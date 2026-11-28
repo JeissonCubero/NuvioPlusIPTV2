@@ -75,7 +75,8 @@ fun MobilePlayerScreen(onClose: () -> Unit) {
     LaunchedEffect(controls, shownAt) {
         if (controls) { delay(4_000); if (System.currentTimeMillis() - shownAt >= 3_900) controls = false }
     }
-    fun close() { vm.playback.stop(); onClose() }
+    // Back: to the list, still playing in the small player there.
+    fun close() { onClose() }
     BackHandler { close() }
     fun zap(dir: Int) {
         vm.zap(playback.channelKey, dir)?.let { vm.preview(it) }
