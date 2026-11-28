@@ -184,7 +184,13 @@ open class MainActivity : ComponentActivity() {
             else -> Screen.LiveTv.route
         }
 
+        // Phone or tablet: the touch screens (same lists, catalog and players).
+        val touch = com.nuvio.tv.livetv.mobile.isTouchDevice(this)
         setContent {
+            if (touch) {
+                NuvioTheme { com.nuvio.tv.livetv.mobile.MobileApp() }
+                return@setContent
+            }
             NuvioTheme {
                 LiveTvShell(
                     startRoute = startRoute,

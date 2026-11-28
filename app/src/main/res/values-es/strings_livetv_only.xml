@@ -41,4 +41,9 @@
     <string name="livetv_only_vod_cant_decode">Este televisor no puede decodificar este video (probablemente es 4K / HEVC). Probá otra versión del título en menor calidad.</string>
     <string name="livetv_only_vod_cant_decode_what">Este televisor no puede reproducir este video (%1$s). Probá otra versión del título en menor calidad.</string>
     <string name="livetv_only_vod_play_failed">No se pudo reproducir este título (%1$s).</string>
+    <string name="livetv_only_mobile_no_lists">Todavía no hay listas. Agregá una en Ajustes (enlace M3U o usuario Xtream).</string>
+    <string name="livetv_only_mobile_no_channels">No hay canales en este grupo.</string>
+    <string name="livetv_only_mobile_fav_added">%1$s agregado a Favoritos</string>
+    <string name="livetv_only_mobile_fav_removed">%1$s quitado de Favoritos</string>
+    <string name="livetv_only_mobile_episodes_count">%1$d episodios</string>
 </resources>

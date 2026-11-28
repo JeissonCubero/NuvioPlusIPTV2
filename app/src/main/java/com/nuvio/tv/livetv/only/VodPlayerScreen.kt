@@ -19,6 +19,8 @@ import androidx.compose.material.icons.filled.PlayArrow
 import com.nuvio.tv.livetv.ui.glass
 import com.nuvio.tv.livetv.ui.glassColor
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -252,6 +254,13 @@ fun VodPlayerScreen(onClose: () -> Unit) {
         Modifier
             .fillMaxSize()
             .background(Color.Black)
+            // Phone: tap shows / hides the bar, double tap on a side seeks 10 s back / forward.
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onTap = { if (barFull) barFull = false else openBar() },
+                    onDoubleTap = { o -> seekBy(if (o.x < size.width / 2) -10_000L else 10_000L) }
+                )
+            }
             .focusRequester(focus)
             .onPreviewKeyEvent { e ->
                 // The subtitles & audio panel handles its own keys.
@@ -353,7 +362,13 @@ fun VodPlayerScreen(onClose: () -> Unit) {
                 playing = playing,
                 spot = if (barFull) spot else null,
                 positionMs = position,
-                durationMs = duration
+                durationMs = duration,
+                onPlay = { togglePlay() },
+                onTracks = { tracksOpen = true; touch() },
+                onSeekTo = { f ->
+                    if (duration > 0) { player.seekTo((f * duration).toLong()); position = player.currentPosition }
+                    touch()
+                }
             )
         }
 
@@ -386,7 +401,10 @@ private fun VodBar(
     playing: Boolean,
     spot: VodSpot?,
     positionMs: Long,
-    durationMs: Long
+    durationMs: Long,
+    onPlay: () -> Unit = {},
+    onTracks: () -> Unit = {},
+    onSeekTo: (Float) -> Unit = {}
 ) {
     val colors = com.nuvio.tv.ui.theme.NuvioTheme.colors
     Box(
@@ -421,16 +439,17 @@ private fun VodBar(
                     }
                 }
                 Spacer(Modifier.height(6.dp))
-                VodTimeline(positionMs, durationMs, grabbed = spot == VodSpot.TIMELINE)
+                VodTimeline(positionMs, durationMs, grabbed = spot == VodSpot.TIMELINE, onSeekTo = onSeekTo)
                 if (full) {
                     Spacer(Modifier.height(6.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         VodRoundButton(
                             if (playing) Icons.Default.Pause else Icons.Default.PlayArrow,
-                            spot == VodSpot.PLAY
+                            spot == VodSpot.PLAY,
+                            onPlay
                         )
                         Spacer(Modifier.width(8.dp))
-                        VodRoundButton(Icons.Default.ClosedCaption, spot == VodSpot.TRACKS)
+                        VodRoundButton(Icons.Default.ClosedCaption, spot == VodSpot.TRACKS, onTracks)
                         Spacer(Modifier.width(14.dp))
                         com.nuvio.tv.livetv.ui.LiveText(
                             when (spot) {
@@ -450,9 +469,10 @@ private fun VodBar(
 }
 
 @Composable
-private fun VodRoundButton(icon: androidx.compose.ui.graphics.vector.ImageVector, focused: Boolean) {
+private fun VodRoundButton(icon: androidx.compose.ui.graphics.vector.ImageVector, focused: Boolean, onClick: () -> Unit = {}) {
     Box(
         Modifier
+            .pointerInput(Unit) { detectTapGestures(onTap = { onClick() }) }
             .size(28.dp)
             .clip(CircleShape)
             .background(if (focused) Color.White else Color.White.copy(alpha = 0.12f)),
@@ -468,13 +488,22 @@ private fun VodRoundButton(icon: androidx.compose.ui.graphics.vector.ImageVector
 }
 
 @Composable
-private fun VodTimeline(positionMs: Long, durationMs: Long, grabbed: Boolean) {
+private fun VodTimeline(positionMs: Long, durationMs: Long, grabbed: Boolean, onSeekTo: (Float) -> Unit = {}) {
     val colors = com.nuvio.tv.ui.theme.NuvioTheme.colors
     val frac = if (durationMs > 0) (positionMs.toFloat() / durationMs).coerceIn(0f, 1f) else 0f
     Row(verticalAlignment = Alignment.CenterVertically) {
         com.nuvio.tv.livetv.ui.LiveText(clock(positionMs), size = 11.sp, color = if (grabbed) Color.White else colors.TextSecondary)
         Spacer(Modifier.width(10.dp))
-        androidx.compose.foundation.layout.BoxWithConstraints(Modifier.weight(1f).height(14.dp)) {
+        androidx.compose.foundation.layout.BoxWithConstraints(
+            Modifier.weight(1f).height(22.dp)
+                // Phone: tap or drag along the bar to jump there.
+                .pointerInput(Unit) { detectTapGestures(onTap = { o -> onSeekTo((o.x / size.width).coerceIn(0f, 1f)) }) }
+                .pointerInput(Unit) {
+                    androidx.compose.foundation.gestures.detectHorizontalDragGestures { change, _ ->
+                        onSeekTo((change.position.x / size.width).coerceIn(0f, 1f))
+                    }
+                }
+        ) {
             val w = maxWidth
             val barH = if (grabbed) 5.dp else 4.dp
             Box(Modifier.align(Alignment.CenterStart).fillMaxWidth().height(barH).clip(RoundedCornerShape(3.dp)).background(Color.White.copy(alpha = 0.18f)))
@@ -552,7 +581,7 @@ private fun TracksPanel(player: ExoPlayer, version: Int, onClose: () -> Unit) {
                 Text(title, color = Color.White.copy(alpha = 0.6f), fontSize = 13.sp, modifier = Modifier.padding(top = 10.dp, bottom = 6.dp))
                 choices.forEach { c ->
                     val myIndex = i++
-                    TrackRow(c, requesters[myIndex], onFocused = { index = myIndex })
+                    TrackRow(c, requesters[myIndex], onFocused = { index = myIndex }, onClick = { c.pick(); onClose() })
                 }
             }
         }
@@ -560,11 +589,12 @@ private fun TracksPanel(player: ExoPlayer, version: Int, onClose: () -> Unit) {
 }
 
 @Composable
-private fun TrackRow(choice: TrackChoice, focusRequester: FocusRequester, onFocused: () -> Unit) {
+private fun TrackRow(choice: TrackChoice, focusRequester: FocusRequester, onFocused: () -> Unit, onClick: () -> Unit = {}) {
     var focused by remember { mutableStateOf(false) }
     Row(
         Modifier
             .fillMaxWidth()
+            .pointerInput(choice) { detectTapGestures(onTap = { onClick() }) }
             .focusRequester(focusRequester)
             .onFocusChanged {
                 focused = it.isFocused
