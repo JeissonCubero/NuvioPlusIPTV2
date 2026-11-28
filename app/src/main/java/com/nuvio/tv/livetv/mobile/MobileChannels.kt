@@ -193,7 +193,7 @@ fun MobileChannelsScreen(onPlay: () -> Unit) {
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun ChannelRow(
+internal fun ChannelRow(
     channel: LiveChannel,
     programTitle: String?,
     progress: Float?,

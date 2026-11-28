@@ -126,9 +126,7 @@ fun MobileApp() {
                         com.nuvio.tv.livetv.only.VodPlayerScreen(onClose = { nav.popBackStack() })
                     }
                     composable(MobileRoutes.SEARCH) {
-                        com.nuvio.tv.livetv.only.LiveTvSearchScreen(
-                            onOpenLiveTv = { nav.navigate(MobileRoutes.PLAYER) { launchSingleTop = true } }
-                        )
+                        MobileSearchScreen(onPlay = { nav.navigate(MobileRoutes.PLAYER) { launchSingleTop = true } })
                     }
                     composable(MobileRoutes.SETTINGS) {
                         MobileSettingsScreen(onCheckUpdates = { manualUpdateCheck++ })
