@@ -21,6 +21,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -67,6 +68,7 @@ fun MobileApp() {
         Tab(MobileRoutes.SETTINGS, R.string.livetv_only_menu_settings, Icons.Default.Settings)
     )
     val fullScreen = route == MobileRoutes.PLAYER || route == MobileRoutes.VOD_PLAYER
+    var manualUpdateCheck by androidx.compose.runtime.remember { androidx.compose.runtime.mutableIntStateOf(0) }
 
     MaterialTheme(
         colorScheme = darkColorScheme(
@@ -129,10 +131,10 @@ fun MobileApp() {
                         )
                     }
                     composable(MobileRoutes.SETTINGS) {
-                        com.nuvio.tv.ui.screens.settings.LiveTvSettingsScreen(onBack = { nav.popBackStack() })
+                        MobileSettingsScreen(onCheckUpdates = { manualUpdateCheck++ })
                     }
                 }
-                com.nuvio.tv.livetv.only.UpdateHost(manualCheck = 0)
+                com.nuvio.tv.livetv.only.UpdateHost(manualCheck = manualUpdateCheck)
             }
         }
     }

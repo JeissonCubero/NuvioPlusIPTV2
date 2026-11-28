@@ -46,4 +46,25 @@
     <string name="livetv_only_mobile_fav_added">%1$s agregado a Favoritos</string>
     <string name="livetv_only_mobile_fav_removed">%1$s quitado de Favoritos</string>
     <string name="livetv_only_mobile_episodes_count">%1$d episodios</string>
+    <string name="livetv_only_m_lists">Listas</string>
+    <string name="livetv_only_m_add_list">Agregar lista</string>
+    <string name="livetv_only_m_update_all">Actualizar todo</string>
+    <string name="livetv_only_m_guides">Guías (EPG)</string>
+    <string name="livetv_only_m_no_guides">No hay enlaces de guía. Las listas que traen su propia guía la usan solas.</string>
+    <string name="livetv_only_m_add_guide">Agregar enlace de guía</string>
+    <string name="livetv_only_m_options">Opciones</string>
+    <string name="livetv_only_m_pin">PIN parental</string>
+    <string name="livetv_only_m_pin_hint">PIN (4 dígitos o más, vacío = apagado)</string>
+    <string name="livetv_only_m_pin_note">Lo piden los grupos bloqueados y los canales para adultos.</string>
+    <string name="livetv_only_m_lock_adult">Bloquear canales para adultos</string>
+    <string name="livetv_only_m_app">App</string>
+    <string name="livetv_only_m_name">Nombre</string>
+    <string name="livetv_only_m_url">Enlace (URL)</string>
+    <string name="livetv_only_m_user_agent">User agent (opcional)</string>
+    <string name="livetv_only_m_server">Servidor (http://…:puerto)</string>
+    <string name="livetv_only_m_user">Usuario</string>
+    <string name="livetv_only_m_password">Contraseña</string>
+    <string name="livetv_only_m_add">Agregar</string>
+    <string name="livetv_only_m_remove">Quitar</string>
+    <string name="livetv_only_m_remove_q">¿Quitar %1$s?</string>
 </resources>

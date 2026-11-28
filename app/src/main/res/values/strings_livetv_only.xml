@@ -47,4 +47,25 @@
     <string name="livetv_only_mobile_fav_added">%1$s added to Favorites</string>
     <string name="livetv_only_mobile_fav_removed">%1$s removed from Favorites</string>
     <string name="livetv_only_mobile_episodes_count">%1$d episodes</string>
+    <string name="livetv_only_m_lists">Lists</string>
+    <string name="livetv_only_m_add_list">Add list</string>
+    <string name="livetv_only_m_update_all">Update all</string>
+    <string name="livetv_only_m_guides">Guides (EPG)</string>
+    <string name="livetv_only_m_no_guides">No guide links. Lists that carry their own guide use it automatically.</string>
+    <string name="livetv_only_m_add_guide">Add guide link</string>
+    <string name="livetv_only_m_options">Options</string>
+    <string name="livetv_only_m_pin">Parental PIN</string>
+    <string name="livetv_only_m_pin_hint">PIN (4 or more digits, empty = off)</string>
+    <string name="livetv_only_m_pin_note">Locked groups and adult channels ask for it.</string>
+    <string name="livetv_only_m_lock_adult">Lock adult channels</string>
+    <string name="livetv_only_m_app">App</string>
+    <string name="livetv_only_m_name">Name</string>
+    <string name="livetv_only_m_url">Link (URL)</string>
+    <string name="livetv_only_m_user_agent">User agent (optional)</string>
+    <string name="livetv_only_m_server">Server (http://…:port)</string>
+    <string name="livetv_only_m_user">Username</string>
+    <string name="livetv_only_m_password">Password</string>
+    <string name="livetv_only_m_add">Add</string>
+    <string name="livetv_only_m_remove">Remove</string>
+    <string name="livetv_only_m_remove_q">Remove %1$s?</string>
 </resources>
