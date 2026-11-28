@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.PlayArrow
 import com.nuvio.tv.livetv.ui.glass
 import com.nuvio.tv.livetv.ui.glassColor
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.layout.Box
@@ -499,7 +500,7 @@ private fun VodTimeline(positionMs: Long, durationMs: Long, grabbed: Boolean, on
                 // Phone: tap or drag along the bar to jump there.
                 .pointerInput(Unit) { detectTapGestures(onTap = { o -> onSeekTo((o.x / size.width).coerceIn(0f, 1f)) }) }
                 .pointerInput(Unit) {
-                    androidx.compose.foundation.gestures.detectHorizontalDragGestures { change, _ ->
+                    detectHorizontalDragGestures { change, _ ->
                         onSeekTo((change.position.x / size.width).coerceIn(0f, 1f))
                     }
                 }
